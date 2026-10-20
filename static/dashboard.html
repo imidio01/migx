@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MigX Bot - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #11111b; color: #cdd6f4; min-height: 100vh; padding: 1.5rem; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        h1 { font-size: 1.5rem; color: #89b4fa; }
+        .btn { padding: 0.6rem 1.2rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        .btn-logout { background: #f38ba8; color: #1e1e2e; }
+        .btn-primary { background: #89b4fa; color: #1e1e2e; padding: 0.75rem 1.6rem; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: #f38ba8; color: #1e1e2e; border: none; border-radius: 6px; padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+        .btn-danger:hover { opacity: 0.85; }
+
+        .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.2rem; border-bottom: 1px solid #313244; flex-wrap: wrap; }
+        .tab { padding: 0.7rem 1.4rem; background: transparent; border: none; color: #a6adc8; font-weight: 600; cursor: pointer; font-size: 0.95rem; border-bottom: 2px solid transparent; }
+        .tab:hover { color: #cdd6f4; }
+        .tab.active { color: #89b4fa; border-bottom-color: #89b4fa; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.2rem; }
+        .card .label { font-size: 0.75rem; text-transform: uppercase; color: #a6adc8; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+        .card .value { font-size: 1.5rem; font-weight: 700; color: #cdd6f4; }
+        .card .value.small { font-size: 1rem; word-break: break-all; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+        .dot-on { background: #a6e3a1; box-shadow: 0 0 8px #a6e3a1; }
+        .dot-off { background: #f38ba8; }
+
+        .action-panel { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.3rem; margin-bottom: 1.5rem; }
+        .action-panel h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 1rem; }
+        .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.8rem; }
+        .field { display: flex; flex-direction: column; gap: 0.3rem; }
+        .field label { font-size: 0.8rem; color: #a6adc8; font-weight: 600; }
+        .field select, .field input { padding: 0.7rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; min-width: 160px; }
+        .field select:focus, .field input:focus { outline: none; border-color: #89b4fa; }
+
+        .room-picker { position: relative; min-width: 240px; }
+        .room-picker input { width: 100%; }
+        .room-list { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: #313244; border: 1px solid #45475a; border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 20; display: none; }
+        .room-list.open { display: block; }
+        .room-list .room-item { padding: 0.6rem 1rem; cursor: pointer; font-size: 0.9rem; }
+        .room-list .room-item:hover { background: #45475a; }
+        .room-list .room-item.selected { color: #89b4fa; font-weight: 600; }
+
+        .hint { font-size: 0.8rem; color: #f9e2af; margin-top: 0.6rem; display: none; }
+        .hint.visible { display: block; }
+        .apply-msg { font-size: 0.85rem; margin-top: 0.6rem; min-height: 1.2rem; }
+        .apply-msg.ok { color: #a6e3a1; }
+        .apply-msg.err { color: #f38ba8; }
+
+        .tasks-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1rem; }
+        .tasks-card h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 0.7rem 0.6rem; border-bottom: 1px solid #313244; }
+        th { color: #a6adc8; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+        .badge-running { background: #a6e3a1; color: #1e1e2e; }
+        .badge-finished { background: #6c7086; color: #cdd6f4; }
+        .badge-stopped { background: #f38ba8; color: #1e1e2e; }
+        .empty { color: #6c7086; font-style: italic; padding: 1rem 0; }
+
+        .log-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1rem; }
+        .log-card h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
+        #log { background: #11111b; border-radius: 8px; padding: 0.8rem; font-family: 'Consolas', monospace; font-size: 0.85rem; height: 350px; overflow-y: auto; line-height: 1.5; }
+        .log-line { white-space: pre-wrap; word-break: break-word; }
+        .log-info { color: #cdd6f4; } .log-ok { color: #a6e3a1; } .log-warn { color: #f9e2af; } .log-err { color: #f38ba8; }
+        .log-ts { color: #6c7086; margin-right: 0.5rem; }
+
+        @media (max-width: 600px) { body { padding: 1rem; } .card .value { font-size: 1.2rem; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎁 MigX Bot — Dashboard</h1>
+            <button class="btn btn-logout" id="logout">Logout</button>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="tasks">Active Tasks</button>
+            <button class="tab" data-tab="new">New Task</button>
+            <!-- Aba de Admin (escondida por defeito) -->
+            <button class="tab" data-tab="admin" id="admin-tab" style="display: none; color: #f38ba8;">Admin Panel</button>
+        </div>
+
+        <div class="tab-content active" id="tab-overview">
+            <div class="grid">
+                <div class="card"><div class="label">Status</div><div class="value" id="status"><span class="status-dot dot-off"></span>—</div></div>
+                <div class="card"><div class="label">User</div><div class="value small" id="username">—</div></div>
+                <div class="card"><div class="label">Room</div><div class="value small" id="room">—</div></div>
+                <div class="card"><div class="label">Members</div><div class="value" id="members">—</div></div>
+                <div class="card"><div class="label">Balance</div><div class="value" id="balance">—</div></div>
+                <div class="card"><div class="label">Heartbeats</div><div class="value" id="hb">0</div></div>
+                <div class="card"><div class="label">Uptime</div><div class="value small" id="uptime">0s</div></div>
+                <div class="card"><div class="label">Running tasks</div><div class="value" id="running-count">0</div></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-tasks">
+            <div class="tasks-card">
+                <h2>All tasks</h2>
+                <table id="tasks-table">
+                    <thead>
+                        <tr><th>Action</th><th>Room</th><th>Params</th><th>Progress</th><th>Elapsed</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody id="tasks-body"></tbody>
+                </table>
+                <div class="empty" id="tasks-empty">No tasks yet.</div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-new">
+            <div class="action-panel">
+                <h2>Create a new task</h2>
+                <div class="action-row">
+                    <div class="field">
+                        <label for="action-select">Action</label>
+                        <select id="action-select">
+                            <option value="park">Park (stay idle)</option>
+                            <option value="gift">Send Gifts</option>
+                            <option value="royale">Play Royale Battle</option>
+                            <option value="cricket">Play Cricket</option>
+                            <option value="dice">Play Dice</option>
+                            <option value="lowcard">Play Lowcard</option>
+                        </select>
+                    </div>
+                    <div class="field room-picker">
+                        <label for="room-search">Room</label>
+                        <input type="text" id="room-search" placeholder="Search or pick a room...">
+                        <div class="room-list" id="room-list"></div>
+                    </div>
+                </div>
+
+                <div class="action-row" id="gift-options" style="display:none;">
+                    <div class="field">
+                        <label>Gift name</label>
+                        <input type="text" id="gift-key" list="gift-list" value="fly" placeholder="Type or pick a gift..." style="min-width:180px;">
+                        <datalist id="gift-list"></datalist>
+                    </div>
+                    <div class="field"><label>How many</label><input type="number" id="gift-count" value="10" min="1" step="1" style="min-width:100px"></div>
+                    <div class="field"><label>Interval (s)</label><input type="number" id="gift-interval" value="10" min="1" step="1" style="min-width:100px"></div>
+                </div>
+
+                <div class="action-row" id="park-options">
+                    <div class="field"><label>Duration (minutes, 0 = infinite)</label><input type="number" id="park-duration" value="0" min="0" step="1" style="min-width:120px"></div>
+                </div>
+
+                <div class="hint" id="hint">This action is event-driven; interval is not used.</div>
+                <div class="apply-msg" id="apply-msg"></div>
+                <button class="btn-primary" id="apply" style="margin-top:0.8rem;">Create task</button>
+            </div>
+        </div>
+
+        <!-- NOVA ABA: ADMIN PANEL -->
+        <div class="tab-content" id="tab-admin">
+            <div class="grid">
+                <div class="card">
+                    <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Online Users</h3>
+                    <div id="admin-online-users" style="font-size:0.9rem;">—</div>
+                </div>
+                <div class="card">
+                    <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Bot Status</h3>
+                    <div id="admin-bot-status" style="font-size:0.9rem;">—</div>
+                </div>
+            </div>
+
+            <div class="tasks-card" style="margin-bottom:1.5rem;">
+                <h2>Manage Rooms</h2>
+                <table>
+                    <thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead>
+                    <tbody id="admin-rooms-body"></tbody>
+                </table>
+                <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <input type="text" id="new-room-id" placeholder="Room ID" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:200px;">
+                    <input type="text" id="new-room-name" placeholder="Room name" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:150px;">
+                    <input type="text" id="new-room-actions" placeholder="park,gift" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:120px;">
+                    <button class="btn-primary" id="add-room-btn">Add Room</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-card">
+            <h2>Real-time log</h2>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const token = sessionStorage.getItem('token');
+        if (!token) { window.location.href = '/'; }
+
+        // Descodificar JWT para saber se é admin
+        let isAdmin = false;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (payload.role === 'admin') {
+                isAdmin = true;
+                document.getElementById('admin-tab').style.display = 'block';
+            }
+        } catch (e) {}
+
+        let ALL_ROOMS = [];
+        let SELECTED_ROOM_ID = null;
+        let CURRENT_TASKS = [];
+
+        const fmtUptime = s => {
+            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+            if (h) return `${h}h ${m}m`;
+            if (m) return `${m}m ${sec}s`;
+            return `${sec}s`;
+        };
+        const escapeHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                if (tab.dataset.tab === 'admin') refreshAdmin();
+            });
+        });
+
+        const openRoomList = () => {
+            const list = document.getElementById('room-list');
+            renderRoomList();
+            list.classList.add('open');
+        };
+        const closeRoomList = () => {
+            setTimeout(() => document.getElementById('room-list').classList.remove('open'), 150);
+        };
+        const renderRoomList = () => {
+            const filter = document.getElementById('room-search').value.toLowerCase();
+            const list = document.getElementById('room-list');
+            const filtered = ALL_ROOMS.filter(r => r.name.toLowerCase().includes(filter));
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="room-item" style="color:#6c7086">No rooms match</div>';
+                return;
+            }
+            list.innerHTML = filtered.map(r =>
+                `<div class="room-item ${r.id === SELECTED_ROOM_ID ? 'selected' : ''}" data-id="${r.id}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>`
+            ).join('');
+            list.querySelectorAll('.room-item[data-id]').forEach(item => {
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    SELECTED_ROOM_ID = item.dataset.id;
+                    document.getElementById('room-search').value = item.dataset.name;
+                    closeRoomList();
+                });
+            });
+        };
+
+        const isEventDriven = a => ['royale','cricket','dice','lowcard'].includes(a);
+        const updateActionFields = () => {
+            const action = document.getElementById('action-select').value;
+            document.getElementById('gift-options').style.display = (action === 'gift') ? 'flex' : 'none';
+            document.getElementById('park-options').style.display = (action === 'park') ? 'flex' : 'none';
+            document.getElementById('hint').classList.toggle('visible', isEventDriven(action));
+        };
+
+        const loadRooms = async () => {
+            try {
+                const res = await fetch('/api/actions');
+                const data = await res.json();
+                ALL_ROOMS = data.rooms;
+                if (ALL_ROOMS.length) {
+                    SELECTED_ROOM_ID = ALL_ROOMS[0].id;
+                    document.getElementById('room-search').value = ALL_ROOMS[0].name;
+                }
+                document.getElementById('room-search').addEventListener('focus', openRoomList);
+                document.getElementById('room-search').addEventListener('input', openRoomList);
+                document.getElementById('room-search').addEventListener('blur', closeRoomList);
+            } catch (e) {}
+        };
+
+        const loadGifts = async () => {
+            try {
+                const res = await fetch('/api/gifts');
+                const data = await res.json();
+                const datalist = document.getElementById('gift-list');
+                datalist.innerHTML = data.gifts.map(g => 
+                    `<option value="${g.name}">${g.name} (${g.price} coins)</option>`
+                ).join('');
+            } catch (e) {}
+        };
+
+        const renderTasks = (tasks) => {
+            CURRENT_TASKS = tasks;
+            const tbody = document.getElementById('tasks-body');
+            const empty = document.getElementById('tasks-empty');
+            if (!tasks.length) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = tasks.map(t => {
+                const params = t.action === 'gift'
+                    ? `${t.params.gift_count}x ${t.params.gift_key} @ ${t.params.gift_interval}s`
+                    : t.action === 'park'
+                        ? (t.params.park_duration_min ? `${t.params.park_duration_min} min` : 'infinite')
+                        : 'event-driven';
+                const progress = t.action === 'gift' ? `${t.gifts_sent}/${t.gift_target}`
+                    : t.action === 'park' ? (t.park_ends_at ? fmtUptime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left' : '∞')
+                    : `${t.gifts_sent} actions`;
+                const badge = t.status === 'running' ? 'badge-running' : t.status === 'stopped' ? 'badge-stopped' : 'badge-finished';
+                const stopBtn = t.status === 'running'
+                    ? `<button class="btn-danger" data-stop="${t.id}">Stop</button>`
+                    : '';
+                return `<tr>
+                    <td><strong>${t.action}</strong></td>
+                    <td>${escapeHtml(t.room_name)}</td>
+                    <td>${params}</td>
+                    <td>${progress}</td>
+                    <td>${fmtUptime(t.elapsed_seconds)}</td>
+                    <td><span class="badge ${badge}">${t.status}</span></td>
+                    <td>${stopBtn}</td>
+                </tr>`;
+            }).join('');
+            tbody.querySelectorAll('button[data-stop]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        await fetch(`/api/tasks/${btn.dataset.stop}/stop`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                    } catch (e) {}
+                });
+            });
+        };
+
+        const renderLog = (logs) => {
+            const el = document.getElementById('log');
+            const wasBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+            el.innerHTML = logs.map(l => `<div class="log-line log-${l.nivel}"><span class="log-ts">${l.ts}</span>${escapeHtml(l.texto)}</div>`).join('');
+            if (wasBottom) el.scrollTop = el.scrollHeight;
+        };
+
+        const refresh = async () => {
+            try {
+                const res = await fetch('/api/status', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.status === 401) { sessionStorage.clear(); window.location.href = '/'; return; }
+                if (!res.ok) return;
+                const d = await res.json();
+
+                const statusEl = document.getElementById('status');
+                if (d.connected) {
+                    statusEl.innerHTML = '<span class="status-dot dot-on"></span>Online';
+                    statusEl.style.color = '#a6e3a1';
+                } else {
+                    statusEl.innerHTML = '<span class="status-dot dot-off"></span>Offline';
+                    statusEl.style.color = '#f38ba8';
+                }
+                document.getElementById('username').textContent = d.username || '—';
+                document.getElementById('room').textContent = d.room_name || '—';
+                document.getElementById('members').textContent = d.room_members ?? '—';
+                document.getElementById('balance').textContent = d.saldo ?? '—';
+                document.getElementById('hb').textContent = d.heartbeats_enviados;
+                document.getElementById('uptime').textContent = fmtUptime(d.uptime_segundos);
+                document.getElementById('running-count').textContent = (d.tasks || []).filter(t => t.status === 'running').length;
+                renderTasks(d.tasks || []);
+                renderLog(d.logs);
+            } catch (e) {}
+        };
+
+        const refreshAdmin = async () => {
+            if (!isAdmin) return;
+            const headers = {'Authorization': `Bearer ${token}`};
+            try {
+                const [sessRes, roomsRes] = await Promise.all([
+                    fetch('/api/admin/sessions', {headers}),
+                    fetch('/api/admin/rooms', {headers})
+                ]);
+                const sess = await sessRes.json();
+                const rooms = await roomsRes.json();
+
+                document.getElementById('admin-online-users').textContent = sess.online_users.length ? sess.online_users.join(', ') : 'None';
+                document.getElementById('admin-bot-status').innerHTML = sess.bot_running
+                    ? `<span class="badge badge-running">Running</span> (${sess.bot_username})`
+                    : '<span class="badge badge-stopped">Offline</span>';
+
+                document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r =>
+                    `<tr><td>${r.name}</td><td>${r.id}</td><td>${r.actions.join(', ')}</td>
+                     <td><button class="btn-danger" onclick="removeRoom('${r.id}')">Remove</button></td></tr>`
+                ).join('');
+            } catch (e) {}
+        };
+
+        window.removeRoom = async (id) => {
+            if (!confirm('Remove this room?')) return;
+            await fetch(`/api/admin/rooms/${id}`, {method: 'DELETE', headers: {'Authorization': `Bearer ${token}`}});
+            refreshAdmin();
+            loadRooms();
+        };
+
+        document.getElementById('add-room-btn').addEventListener('click', async () => {
+            const id = document.getElementById('new-room-id').value.trim();
+            const name = document.getElementById('new-room-name').value.trim();
+            const actions = document.getElementById('new-room-actions').value.split(',').map(s => s.trim()).filter(Boolean);
+            if (!id || !name || !actions.length) return;
+            const res = await fetch('/api/admin/rooms', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                body: JSON.stringify({id, name, actions})
+            });
+            if (res.ok) {
+                document.getElementById('new-room-id').value = '';
+                document.getElementById('new-room-name').value = '';
+                refreshAdmin();
+                loadRooms();
+            }
+        });
+
+        document.getElementById('apply').addEventListener('click', async () => {
+            const btn = document.getElementById('apply');
+            const msg = document.getElementById('apply-msg');
+            const action = document.getElementById('action-select').value;
+
+            if (!SELECTED_ROOM_ID) {
+                msg.textContent = 'Pick a room first.';
+                msg.className = 'apply-msg err';
+                return;
+            }
+
+            const body = { action, room_id: SELECTED_ROOM_ID };
+            if (action === 'gift') {
+                body.gift_key = document.getElementById('gift-key').value.trim() || 'fly';
+                body.gift_count = parseInt(document.getElementById('gift-count').value) || 1;
+                body.gift_interval = parseFloat(document.getElementById('gift-interval').value) || 10;
+            } else if (action === 'park') {
+                body.park_duration_min = parseInt(document.getElementById('park-duration').value) || 0;
+            }
+
+            btn.disabled = true;
+            msg.textContent = 'Creating task...';
+            msg.className = 'apply-msg';
+
+            try {
+                const res = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    msg.textContent = 'Task created!';
+                    msg.className = 'apply-msg ok';
+                    refresh();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    msg.textContent = 'Error: ' + (err.detail || 'unknown');
+                    msg.className = 'apply-msg err';
+                }
+            } catch (e) {
+                msg.textContent = 'Network error.';
+                msg.className = 'apply-msg err';
+            }
+            btn.disabled = false;
+        });
+
+        document.getElementById('logout').addEventListener('click', async () => {
+            try { await fetch('/api/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch (e) {}
+            sessionStorage.clear();
+            window.location.href = '/';
+        });
+
+        document.getElementById('action-select').addEventListener('change', updateActionFields);
+        updateActionFields();
+        loadRooms();
+        loadGifts();
+        refresh();
+        setInterval(refresh, 2000);
+        if (isAdmin) setInterval(refreshAdmin, 3000);
+    </script>
+</body>
+</html>

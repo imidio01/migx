@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MigX Bot - Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #11111b; color: #cdd6f4; min-height: 100vh; padding: 1.5rem; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        h1 { font-size: 1.5rem; color: #f38ba8; margin-bottom: 1.5rem; }
+        .login-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 2rem; max-width: 400px; margin: 4rem auto; }
+        .login-card h2 { color: #89b4fa; margin-bottom: 1rem; }
+        .field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; }
+        .field label { font-size: 0.85rem; color: #a6adc8; font-weight: 600; }
+        .field input { padding: 0.8rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; }
+        .field input:focus { outline: none; border-color: #89b4fa; }
+        .btn-primary { background: #89b4fa; color: #1e1e2e; padding: 0.75rem 1.6rem; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+        .btn-danger { background: #f38ba8; color: #1e1e2e; border: none; border-radius: 6px; padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+        .btn-logout { background: #f38ba8; color: #1e1e2e; padding: 0.6rem 1.2rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.2rem; }
+        .card h3 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 0.6rem 0.4rem; border-bottom: 1px solid #313244; }
+        th { color: #a6adc8; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+        .badge-on { background: #a6e3a1; color: #1e1e2e; }
+        .badge-off { background: #6c7086; color: #cdd6f4; }
+        .hidden { display: none; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header id="admin-header" class="hidden">
+            <h1>🔐 MigX Bot — Admin</h1>
+            <button class="btn-logout" id="admin-logout">Logout</button>
+        </header>
+
+        <div class="login-card" id="login-box">
+            <h2>Admin Login</h2>
+            <div class="field"><label>Username</label><input type="text" id="admin-user" value="admin"></div>
+            <div class="field"><label>Password</label><input type="password" id="admin-pass"></div>
+            <button class="btn-primary" id="admin-login-btn">Login</button>
+            <div id="login-msg" style="margin-top:0.8rem; font-size:0.85rem;"></div>
+        </div>
+
+        <div class="hidden" id="admin-dashboard">
+            <div class="grid">
+                <div class="card">
+                    <h3>Online Users</h3>
+                    <div id="online-users">—</div>
+                </div>
+                <div class="card">
+                    <h3>Bot Status</h3>
+                    <div id="bot-status">—</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:1.5rem;">
+                <h3>Active Tasks</h3>
+                <table>
+                    <thead><tr><th>Action</th><th>Room</th><th>Params</th><th>Status</th></tr></thead>
+                    <tbody id="admin-tasks-body"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Manage Rooms</h3>
+                <table>
+                    <thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead>
+                    <tbody id="admin-rooms-body"></tbody>
+                </table>
+                <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <input type="text" id="new-room-id" placeholder="Room ID" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:200px;">
+                    <input type="text" id="new-room-name" placeholder="Room name" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:150px;">
+                    <input type="text" id="new-room-actions" placeholder="park,gift" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:120px;">
+                    <button class="btn-primary" id="add-room-btn">Add Room</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tenta ler o token da sessão normal (login principal)
+        let adminToken = sessionStorage.getItem('token') || sessionStorage.getItem('admin_token');
+
+        const decodeJwt = (token) => {
+            try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+        };
+
+        const showDashboard = () => {
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('admin-header').classList.remove('hidden');
+            document.getElementById('admin-dashboard').classList.remove('hidden');
+            refreshAdmin();
+            if (!window._adminInterval) {
+                window._adminInterval = setInterval(refreshAdmin, 3000);
+            }
+        };
+
+        const showLogin = () => {
+            document.getElementById('login-box').classList.remove('hidden');
+            document.getElementById('admin-header').classList.add('hidden');
+            document.getElementById('admin-dashboard').classList.add('hidden');
+        };
+
+        const login = async () => {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('admin-user').value,
+                    password: document.getElementById('admin-pass').value
+                })
+            });
+            if (res.ok) {
+                const d = await res.json();
+                adminToken = d.access_token;
+                sessionStorage.setItem('admin_token', adminToken);
+                showDashboard();
+            } else {
+                document.getElementById('login-msg').textContent = 'Invalid credentials';
+                document.getElementById('login-msg').style.color = '#f38ba8';
+            }
+        };
+
+        const refreshAdmin = async () => {
+            if (!adminToken) return;
+            const headers = {'Authorization': `Bearer ${adminToken}`};
+            try {
+                const [sessRes, roomsRes] = await Promise.all([
+                    fetch('/api/admin/sessions', {headers}),
+                    fetch('/api/admin/rooms', {headers})
+                ]);
+                if (sessRes.status === 403) { 
+                    sessionStorage.clear(); 
+                    showLogin();
+                    return; 
+                }
+                const sess = await sessRes.json();
+                const rooms = await roomsRes.json();
+
+                document.getElementById('online-users').textContent = sess.online_users.length ? sess.online_users.join(', ') : 'None';
+                document.getElementById('bot-status').innerHTML = sess.bot_running
+                    ? `<span class="badge badge-on">Running</span> (${sess.bot_username})`
+                    : '<span class="badge badge-off">Offline</span>';
+
+                document.getElementById('admin-tasks-body').innerHTML = sess.tasks.map(t =>
+                    `<tr><td>${t.action}</td><td>${t.room_name}</td><td>${JSON.stringify(t.params)}</td><td>${t.status}</td></tr>`
+                ).join('') || '<tr><td colspan="4" style="color:#6c7086">No tasks</td></tr>';
+
+                document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r =>
+                    `<tr><td>${r.name}</td><td>${r.id}</td><td>${r.actions.join(', ')}</td>
+                     <td><button class="btn-danger" onclick="removeRoom('${r.id}')">Remove</button></td></tr>`
+                ).join('');
+            } catch (e) {}
+        };
+
+        window.removeRoom = async (id) => {
+            if (!confirm('Remove this room?')) return;
+            await fetch(`/api/admin/rooms/${id}`, {method: 'DELETE', headers: {'Authorization': `Bearer ${adminToken}`}});
+            refreshAdmin();
+        };
+
+        document.getElementById('add-room-btn').addEventListener('click', async () => {
+            const id = document.getElementById('new-room-id').value.trim();
+            const name = document.getElementById('new-room-name').value.trim();
+            const actions = document.getElementById('new-room-actions').value.split(',').map(s => s.trim()).filter(Boolean);
+            if (!id || !name || !actions.length) return;
+            const res = await fetch('/api/admin/rooms', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}`},
+                body: JSON.stringify({id, name, actions})
+            });
+            if (res.ok) {
+                document.getElementById('new-room-id').value = '';
+                document.getElementById('new-room-name').value = '';
+                refreshAdmin();
+            }
+        });
+
+        document.getElementById('admin-login-btn').addEventListener('click', login);
+
+        document.getElementById('admin-logout').addEventListener('click', () => {
+            sessionStorage.clear();
+            window.location.href = '/';
+        });
+
+        // --- BOOTSTRAP ---
+        // Se já existe um token de admin (role=admin), entra direto na dashboard
+        if (adminToken) {
+            const payload = decodeJwt(adminToken);
+            if (payload && payload.role === 'admin') {
+                showDashboard();
+            } else {
+                showLogin();
+            }
+        } else {
+            showLogin();
+        }
+    </script>
+</body>
+</html>

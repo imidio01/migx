@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MigX Bot - Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #11111b; color: #cdd6f4; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .card { background: #181825; padding: 2.5rem 2rem; border-radius: 20px; box-shadow: 0 25px 80px rgba(0,0,0,0.5); width: 100%; max-width: 420px; border: 1px solid #313244; }
+        .logo { text-align: center; font-size: 2.2rem; margin-bottom: 0.3rem; }
+        h1 { font-size: 1.6rem; color: #cdd6f4; text-align: center; margin-bottom: 0.4rem; font-weight: 600; }
+        p.sub { color: #a6adc8; text-align: center; margin-bottom: 2rem; font-size: 0.9rem; }
+        label { display: block; color: #cdd6f4; font-weight: 500; margin-bottom: 0.4rem; font-size: 0.9rem; }
+        input { width: 100%; padding: 0.9rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 12px; color: #cdd6f4; font-size: 1rem; transition: border-color 0.2s; margin-bottom: 1.3rem; }
+        input:focus { outline: none; border-color: #89b4fa; }
+        button { width: 100%; padding: 1rem; background: linear-gradient(135deg, #89b4fa, #74c7ec); color: #1e1e2e; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+        button:hover { opacity: 0.9; }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .msg { text-align: center; margin-top: 1.2rem; font-size: 0.9rem; min-height: 1.2rem; }
+        .msg.ok { color: #a6e3a1; }
+        .msg.err { color: #f38ba8; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">🎁</div>
+        <h1>MigX Bot</h1>
+        <p class="sub">Sign in to manage your bot</p>
+        <form id="loginForm">
+            <label for="username">Username</label>
+            <input type="text" id="username" required autocomplete="username" placeholder="apoiador">
+            <label for="password">Password</label>
+            <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+            <button type="submit" id="btn">Sign In</button>
+        </form>
+        <div class="msg" id="msg"></div>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn');
+            const msg = document.getElementById('msg');
+            btn.disabled = true;
+            msg.textContent = 'Processing...';
+            msg.className = 'msg';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value.trim(),
+                        password: document.getElementById('password').value
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    sessionStorage.setItem('token', data.access_token);
+                    
+                    const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+                    
+                    msg.textContent = 'Login OK! Redirecting...';
+                    msg.className = 'msg ok';
+                    
+                    if (payload.role === 'admin') {
+                        window.location.href = '/dashboard'; // Vai para a dashboard, mas com a aba admin visível
+                    } else {
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    msg.textContent = data.detail || 'Login failed';
+                    msg.className = 'msg err';
+                }
+            } catch (err) {
+                msg.textContent = 'Network error';
+                msg.className = 'msg err';
+            }
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>

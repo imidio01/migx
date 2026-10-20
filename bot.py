@@ -1,0 +1,485 @@
+# bot.py
+import socketio
+import requests
+import threading
+import time
+import uuid
+import random
+import re
+from datetime import datetime
+from rooms import find_room, is_event_driven
+from gifts import get_gift_key
+
+API_BASE = "https://api.migxapp.com"
+SOCKET_URL = "https://api.migxapp.com"
+HEARTBEAT_INTERVALO = 15
+
+def fazer_login(username, password):
+    url = f"{API_BASE}/trpc/auth.login?batch=1"
+    payload = {"0": {"json": {"username": username, "password": password}}}
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        result = data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
+        if result.get("loginState") == "authenticated":
+            return {"token": result["token"], "user": result["user"]}
+        return None
+    except Exception:
+        return None
+
+def entrar_sala_http(token, room_id):
+    url = f"{API_BASE}/trpc/room.join?batch=1"
+    payload = {"0": {"json": {"roomId": room_id}}}
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+    r = requests.post(url, json=payload, headers=headers, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    return data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
+
+def enviar_mensagem_http(token, room_id, content):
+    url = f"{API_BASE}/trpc/room.sendMessage?batch=1"
+    payload = {
+        "0": {
+            "json": {"roomId": room_id, "content": content, "messageType": "text", "replyTo": None},
+            "meta": {"values": {"replyTo": ["undefined"]}, "v": 1},
+        }
+    }
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=10)
+        if r.status_code >= 400:
+            return False
+        data = r.json()
+        result = data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
+        return result.get("success", False)
+    except Exception:
+        return False
+
+class Task:
+    _counter = 0
+    def __init__(self, action, room_id, room_name, params):
+        Task._counter += 1
+        self.id = f"t{Task._counter}-{uuid.uuid4().hex[:6]}"
+        self.action = action
+        self.room_id = room_id
+        self.room_name = room_name
+        self.params = params
+        self.status = "running"
+        self.started_at = time.time()
+        self.stopped_at = None
+        self.gifts_sent = 0
+        self.gift_target = params.get("gift_count", 0) if action == "gift" else 0
+        self.park_ends_at = None
+        self.stop_event = threading.Event()
+
+    def elapsed(self):
+        end = self.stopped_at or time.time()
+        return int(end - self.started_at)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "action": self.action, "room_id": self.room_id,
+            "room_name": self.room_name, "params": self.params, "status": self.status,
+            "started_at": self.started_at, "stopped_at": self.stopped_at,
+            "elapsed_seconds": self.elapsed(), "gifts_sent": self.gifts_sent,
+            "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
+        }
+
+class MigXBot:
+    def __init__(self):
+        self.token = None
+        self.user = None
+        self.user_id = None
+        self.username = None
+        self.level = None
+        self.room_id = None
+        self.room_name = None
+        self.room_members = None
+        self.saldo = None
+        self.connected = False
+        self.tasks = {}
+        self.tasks_lock = threading.Lock()
+        self.heartbeat_ativo = False
+        self.heartbeats_enviados = 0
+        self.mensagens_recebidas = 0
+        self._game_state = {}
+        self.logs = []
+        self.log_lock = threading.Lock()
+        self.started_at = None
+        self.sio = None
+
+    def _log(self, nivel, texto):
+        entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": texto}
+        with self.log_lock:
+            self.logs.append(entrada)
+            if len(self.logs) > 300:
+                self.logs = self.logs[-300:]
+        print(f"[{entrada['ts']}] [{nivel}] {texto}")
+
+    def estado(self):
+        with self.log_lock:
+            logs = list(self.logs)
+        with self.tasks_lock:
+            tasks = [t.to_dict() for t in self.tasks.values()]
+        uptime = int(time.time() - self.started_at) if self.started_at else 0
+        return {
+            "connected": self.connected, "username": self.username, "level": self.level,
+            "room_id": self.room_id, "room_name": self.room_name, "room_members": self.room_members,
+            "saldo": self.saldo, "heartbeats_enviados": self.heartbeats_enviados,
+            "mensagens_recebidas": self.mensagens_recebidas, "uptime_segundos": uptime,
+            "tasks": tasks, "logs": logs[-80:],
+        }
+
+    def start(self, username, password):
+        self._log("info", "Logging in to MigX...")
+        sessao = fazer_login(username, password)
+        if not sessao:
+            self._log("err", "Invalid credentials.")
+            return False, "Invalid credentials (wrong username/password)"
+
+        self.token = sessao["token"]
+        self.user = sessao["user"]
+        self.user_id = self.user["_id"]
+        self.username = self.user["username"]
+        self.level = self.user.get("level", 1)
+        self.started_at = time.time()
+        self._log("ok", f"Login OK: {self.username} (level {self.level})")
+
+        self.sio = socketio.Client(
+            reconnection=True, reconnection_attempts=10, reconnection_delay=2,
+            reconnection_delay_max=30, randomization_factor=0.5,
+            logger=False, engineio_logger=False, request_timeout=30,
+        )
+        self._registar_eventos()
+
+        device_id = str(uuid.uuid4())
+        auth = {"token": f"Bearer {self.token}", "clientVersion": "web", "platform": "web", "deviceId": device_id}
+        
+        self._log("info", "Connecting to Socket.IO (using polling first)...")
+        try:
+            self.sio.connect(SOCKET_URL, transports=["polling", "websocket"], auth=auth, wait_timeout=30)
+            return True, None
+        except Exception as e:
+            self._log("err", f"Socket.IO connection failed: {e}")
+            return False, f"Socket.IO connection failed: {str(e)}"
+
+    def _registar_eventos(self):
+        @self.sio.event
+        def connect():
+            self.connected = True
+            self._log("ok", "Connected to MigX Socket.IO")
+            self.heartbeat_ativo = True
+            threading.Thread(target=self._loop_heartbeat, daemon=True).start()
+
+        @self.sio.event
+        def disconnect():
+            self.connected = False
+            self.heartbeat_ativo = False
+            self._log("warn", "Disconnected from Socket.IO")
+
+        @self.sio.on("room:message")
+        def on_rm(data): self._on_room_message(data)
+
+        @self.sio.on("roomMessage")
+        def on_rm2(data): self._on_room_message(data)
+
+        @self.sio.on("user:balance")
+        def on_bal(data):
+            self.saldo = data.get("balance")
+            self._log("info", f"Balance: {self.saldo}")
+
+        @self.sio.on("game:state")
+        def on_gs(data): self._on_game_state(data)
+
+        @self.sio.on("gameState")
+        def on_gs2(data): self._on_game_state(data)
+
+        @self.sio.on("roomCountChanged")
+        def on_rc(data):
+            if data.get("roomId") == self.room_id:
+                self.room_members = data.get("count")
+
+        @self.sio.on("*")
+        def on_any(event, data): pass
+
+    def _loop_heartbeat(self):
+        while self.heartbeat_ativo and self.sio and self.sio.connected:
+            try:
+                self.sio.emit("user:heartbeat")
+                self.heartbeats_enviados += 1
+            except Exception:
+                pass
+            time.sleep(HEARTBEAT_INTERVALO)
+
+    def create_task(self, action, room_id, params):
+        room = find_room(room_id)
+        if not room:
+            return None, f"Unknown room {room_id}"
+        if action not in room["actions"]:
+            return None, f"Action '{action}' not allowed in '{room['name']}'"
+
+        try:
+            info = entrar_sala_http(self.token, room_id)
+            self.room_members = info.get("memberCount", "?")
+            self._log("ok", f"Joined '{room['name']}' ({self.room_members} members)")
+        except Exception as e:
+            self._log("err", f"Failed to join room: {e}")
+            return None, str(e)
+
+        self.sio.emit("room:join", {"roomId": room_id})
+        time.sleep(0.3)
+
+        task = Task(action, room_id, room["name"], params)
+        if action == "park" and params.get("park_duration_min", 0) > 0:
+            task.park_ends_at = time.time() + params["park_duration_min"] * 60
+
+        with self.tasks_lock:
+            self.tasks[task.id] = task
+
+        self._log("ok", f"Task {task.id} created: {action} in {room['name']}")
+        threading.Thread(target=self._run_task, args=(task,), daemon=True).start()
+        return task, None
+
+    def stop_task(self, task_id):
+        with self.tasks_lock:
+            task = self.tasks.get(task_id)
+            if not task:
+                return False, "Task not found"
+            if task.status != "running":
+                return False, "Task already finished"
+            task.stop_event.set()
+            task.status = "stopped"
+            task.stopped_at = time.time()
+        self._log("warn", f"Task {task_id} stopped by user")
+        return True, None
+
+    def _run_task(self, task):
+        try:
+            if task.action == "park":
+                self._run_park(task)
+            elif task.action == "gift":
+                self._run_gift(task)
+            elif is_event_driven(task.action):
+                while not task.stop_event.is_set():
+                    task.stop_event.wait(1)
+        except Exception as e:
+            self._log("err", f"Task {task.id} crashed: {e}")
+        finally:
+            if task.status == "running":
+                task.status = "finished"
+                task.stopped_at = time.time()
+            self._log("info", f"Task {task.id} ended ({task.status})")
+
+    def _run_park(self, task):
+        duration = task.params.get("park_duration_min", 0)
+        if duration > 0:
+            self._log("info", f"[park] {task.room_name}: parking for {duration} min")
+            while not task.stop_event.is_set():
+                if task.park_ends_at and time.time() >= task.park_ends_at:
+                    self._log("info", f"[park] {task.room_name}: duration reached")
+                    return
+                task.stop_event.wait(1)
+        else:
+            self._log("info", f"[park] {task.room_name}: parking indefinitely")
+            while not task.stop_event.is_set():
+                task.stop_event.wait(1)
+
+    def _run_gift(self, task):
+        user_gift_input = task.params.get("gift_key", "fly")
+        gift_key = get_gift_key(user_gift_input)
+        count = task.params.get("gift_count", 1)
+        interval = task.params.get("gift_interval", 10)
+        
+        self._log("info", f"[gift] {task.room_name}: sending {count}x '{gift_key}' every {interval}s")
+        
+        for i in range(count):
+            if task.stop_event.is_set():
+                return
+            ok = enviar_mensagem_http(self.token, task.room_id, f"/gift all {gift_key}")
+            if ok:
+                task.gifts_sent = i + 1
+                self._log("ok", f"[gift] {task.room_name}: {i+1}/{count} sent")
+            else:
+                self._log("warn", f"[gift] {task.room_name}: rejected ({i+1}/{count})")
+            task.stop_event.wait(interval)
+
+    def _on_room_message(self, data):
+        self.mensagens_recebidas += 1
+        msg = data.get("message", {}) or {}
+        content = msg.get("content", "")
+        sender = msg.get("sender", {}) or {}
+        mtype = msg.get("messageType", "")
+        if mtype == "system":
+            clean = re.sub(r"<[^>]+>", "", content)[:140]
+            self._log("info", f"[system] {clean}")
+        else:
+            self._log("info", f"{sender.get('username', '?')}: {content[:140]}")
+
+    def _on_game_state(self, data):
+        if not isinstance(data, dict): return
+        game = data.get("game") or data
+        name = game.get("gameName")
+        if not name: return
+        with self.tasks_lock:
+            active = [t for t in self.tasks.values() if t.status == "running"]
+
+        if name == "royalebattle":
+            for t in active:
+                if t.action == "royale": self._handle_royale(t, game)
+        elif name == "cricket":
+            for t in active:
+                if t.action == "cricket": self._handle_cricket(t, game)
+        elif name == "dice":
+            for t in active:
+                if t.action == "dice": self._handle_dice(t, game)
+        elif name in ("lowcard", "cards", "cardbattle", "card", None):
+            for t in active:
+                if t.action == "lowcard": self._handle_lowcard(t, game)
+
+    def _handle_royale(self, task, game):
+        key = f"royale-{task.id}"
+        phase = game.get("phase")
+        started_at = game.get("startedAt")
+        state = self._game_state.setdefault(key, {"last_started": None, "bet": False})
+        if started_at != state["last_started"]:
+            state["last_started"] = started_at
+            state["bet"] = False
+            self._log("info", f"[royale] {task.room_name}: new round")
+        if phase == "bidding" and not state["bet"]:
+            state["bet"] = True
+            threading.Thread(target=self._royale_bet, args=(task,), daemon=True).start()
+
+    def _royale_bet(self, task):
+        time.sleep(random.uniform(3, 6))
+        if task.stop_event.is_set(): return
+        enviar_mensagem_http(self.token, task.room_id, "!bet red 100")
+        task.gifts_sent += 1
+        time.sleep(random.uniform(2, 4))
+        if task.stop_event.is_set(): return
+        enviar_mensagem_http(self.token, task.room_id, "!bet blue 100")
+        task.gifts_sent += 1
+
+    def _handle_cricket(self, task, game):
+        key = f"cricket-{task.id}"
+        game_id = game.get("gameId")
+        phase = game.get("phase")
+        players = game.get("players", []) or []
+        join_credit = game.get("joinCredit", 0) or 0
+        action_cmd = game.get("actionCommand") or "!d"
+        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0, "action_cmd": "!d"})
+        if game_id != state["game_id"]:
+            state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit, "action_cmd": action_cmd})
+            self._log("info", f"[cricket] {task.room_name}: new game {game_id} join={join_credit}")
+        if join_credit > 100: return
+        meu = next((p for p in players if p.get("userId") == self.user_id), None)
+        estou = meu is not None
+        if phase == "joining" and not estou and not state["entered"]:
+            state["entered"] = True
+            threading.Thread(target=self._cricket_enter, args=(task,), daemon=True).start()
+        elif phase in ("rolling", "playing", "acting", "choosing", "drawing", "bidding"):
+            if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
+                if not state["played"]:
+                    state["played"] = True
+                    threading.Thread(target=self._cricket_play, args=(task, state["action_cmd"]), daemon=True).start()
+
+    def _cricket_enter(self, task):
+        time.sleep(random.uniform(1, 2))
+        if task.stop_event.is_set(): return
+        enviar_mensagem_http(self.token, task.room_id, "!j")
+
+    def _cricket_play(self, task, cmd):
+        time.sleep(random.uniform(3, 8))
+        if task.stop_event.is_set(): return
+        if random.random() > 0.7:
+            self._log("info", f"[cricket] {task.room_name}: skipped")
+            return
+        enviar_mensagem_http(self.token, task.room_id, cmd or "!d")
+        task.gifts_sent += 1
+
+    def _handle_dice(self, task, game):
+        key = f"dice-{task.id}"
+        game_id = game.get("gameId")
+        phase = game.get("phase")
+        players = game.get("players", []) or []
+        join_credit = game.get("joinCredit", 0) or 0
+        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "rolled": False, "join_credit": 0})
+        if game_id != state["game_id"]:
+            state.update({"game_id": game_id, "entered": False, "rolled": False, "join_credit": join_credit})
+            self._log("info", f"[dice] {task.room_name}: new game {game_id} join={join_credit}")
+        if join_credit > 100: return
+        meu = next((p for p in players if p.get("userId") == self.user_id), None)
+        estou = meu is not None
+        if phase == "joining" and not estou and not state["entered"]:
+            state["entered"] = True
+            threading.Thread(target=self._dice_enter, args=(task,), daemon=True).start()
+        elif phase in ("rolling", "playing", "acting"):
+            if meu and meu.get("canAct") and not meu.get("acted") and not state["rolled"]:
+                state["rolled"] = True
+                threading.Thread(target=self._dice_roll, args=(task,), daemon=True).start()
+
+    def _dice_enter(self, task):
+        time.sleep(random.uniform(1, 2))
+        if task.stop_event.is_set(): return
+        enviar_mensagem_http(self.token, task.room_id, "!j")
+
+    def _dice_roll(self, task):
+        time.sleep(random.uniform(3, 8))
+        if task.stop_event.is_set(): return
+        if random.random() > 0.7:
+            self._log("info", f"[dice] {task.room_name}: skipped")
+            return
+        enviar_mensagem_http(self.token, task.room_id, "!r")
+        task.gifts_sent += 1
+
+    def _handle_lowcard(self, task, game):
+        key = f"lowcard-{task.id}"
+        game_id = game.get("gameId")
+        phase = game.get("phase")
+        players = game.get("players", []) or []
+        join_credit = game.get("joinCredit", 0) or 0
+        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0})
+        if game_id != state["game_id"]:
+            state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit})
+            self._log("info", f"[lowcard] {task.room_name}: new game {game_id} join={join_credit}")
+        if join_credit > 100: return
+        meu = next((p for p in players if p.get("userId") == self.user_id), None)
+        estou = meu is not None
+        if phase == "joining" and not estou and not state["entered"]:
+            state["entered"] = True
+            threading.Thread(target=self._lowcard_enter, args=(task,), daemon=True).start()
+        elif phase in ("rolling", "playing", "acting", "choosing", "drawing", "bidding"):
+            if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
+                if not state["played"]:
+                    state["played"] = True
+                    threading.Thread(target=self._lowcard_play, args=(task,), daemon=True).start()
+        if meu and meu.get("acted"):
+            state["played"] = True
+
+    def _lowcard_enter(self, task):
+        time.sleep(random.uniform(1, 2))
+        if task.stop_event.is_set(): return
+        enviar_mensagem_http(self.token, task.room_id, "!j")
+
+    def _lowcard_play(self, task):
+        time.sleep(random.uniform(3, 8))
+        if task.stop_event.is_set(): return
+        if random.random() > 0.7:
+            self._log("info", f"[lowcard] {task.room_name}: skipped")
+            return
+        enviar_mensagem_http(self.token, task.room_id, "!d")
+        task.gifts_sent += 1
+
+    def stop(self):
+        with self.tasks_lock:
+            for t in self.tasks.values():
+                if t.status == "running":
+                    t.stop_event.set()
+                    t.status = "stopped"
+                    t.stopped_at = time.time()
+        self.heartbeat_ativo = False
+        self._log("warn", "Stopping bot...")
+        if self.sio and self.sio.connected:
+            try: self.sio.disconnect()
+            except Exception: pass

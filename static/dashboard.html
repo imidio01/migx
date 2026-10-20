@@ -89,7 +89,6 @@
             <button class="tab active" data-tab="overview">Overview</button>
             <button class="tab" data-tab="tasks">Active Tasks</button>
             <button class="tab" data-tab="new">New Task</button>
-            <!-- Aba de Admin (escondida por defeito) -->
             <button class="tab" data-tab="admin" id="admin-tab" style="display: none; color: #f38ba8;">Admin Panel</button>
         </div>
 
@@ -110,9 +109,7 @@
             <div class="tasks-card">
                 <h2>All tasks</h2>
                 <table id="tasks-table">
-                    <thead>
-                        <tr><th>Action</th><th>Room</th><th>Params</th><th>Progress</th><th>Elapsed</th><th>Status</th><th></th></tr>
-                    </thead>
+                    <thead><tr><th>Action</th><th>Room</th><th>Params</th><th>Progress</th><th>Elapsed</th><th>Status</th><th></th></tr></thead>
                     <tbody id="tasks-body"></tbody>
                 </table>
                 <div class="empty" id="tasks-empty">No tasks yet.</div>
@@ -161,20 +158,20 @@
             </div>
         </div>
 
-        <!-- NOVA ABA: ADMIN PANEL -->
         <div class="tab-content" id="tab-admin">
             <div class="grid">
                 <div class="card">
                     <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Online Users</h3>
                     <div id="admin-online-users" style="font-size:0.9rem;">—</div>
                 </div>
-                <div class="card">
-                    <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Bot Status</h3>
-                    <div id="admin-bot-status" style="font-size:0.9rem;">—</div>
-                </div>
             </div>
 
-            <div class="tasks-card" style="margin-bottom:1.5rem;">
+            <div class="card" style="grid-column: span 2; margin-bottom:1.5rem;">
+                <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Active Bots</h3>
+                <div id="admin-bot-status" style="font-size:0.9rem;">—</div>
+            </div>
+
+            <div class="tasks-card">
                 <h2>Manage Rooms</h2>
                 <table>
                     <thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead>
@@ -199,7 +196,6 @@
         const token = sessionStorage.getItem('token');
         if (!token) { window.location.href = '/'; }
 
-        // Descodificar JWT para saber se é admin
         let isAdmin = false;
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
@@ -273,7 +269,7 @@
                 const res = await fetch('/api/actions');
                 const data = await res.json();
                 ALL_ROOMS = data.rooms;
-                if (ALL_ROOMS.length) {
+                if (ALL_ROOMS.length && !SELECTED_ROOM_ID) {
                     SELECTED_ROOM_ID = ALL_ROOMS[0].id;
                     document.getElementById('room-search').value = ALL_ROOMS[0].name;
                 }
@@ -384,16 +380,47 @@
                 const sess = await sessRes.json();
                 const rooms = await roomsRes.json();
 
-                document.getElementById('admin-online-users').textContent = sess.online_users.length ? sess.online_users.join(', ') : 'None';
-                document.getElementById('admin-bot-status').innerHTML = sess.bot_running
-                    ? `<span class="badge badge-running">Running</span> (${sess.bot_username})`
-                    : '<span class="badge badge-stopped">Offline</span>';
+                document.getElementById('admin-online-users').textContent = 
+                    sess.online_users.length ? sess.online_users.join(', ') : 'None';
+
+                const bots = sess.active_bots || {};
+                let botsHtml = '';
+                
+                if (Object.keys(bots).length === 0) {
+                    botsHtml = '<tr><td colspan="4" style="color:#6c7086">No bots running</td></tr>';
+                } else {
+                    for (const [username, info] of Object.entries(bots)) {
+                        const tasksHtml = info.tasks.length 
+                            ? info.tasks.map(t => 
+                                `<div style="font-size:0.8rem; margin:2px 0;">
+                                    ${t.action} in <b>${t.room_name}</b> — ${t.status} (${t.gifts_sent} actions)
+                                </div>`
+                              ).join('')
+                            : '<span style="color:#6c7086">No tasks</span>';
+                        
+                        botsHtml += `<tr>
+                            <td><b>${username}</b></td>
+                            <td>${info.connected ? '<span class="badge badge-running">Online</span>' : '<span class="badge badge-stopped">Offline</span>'}</td>
+                            <td>${info.room_name || '—'}</td>
+                            <td>${tasksHtml}</td>
+                        </tr>`;
+                    }
+                }
+
+                document.getElementById('admin-bot-status').innerHTML = `
+                    <table style="width:100%; margin-top:0.5rem;">
+                        <thead><tr><th>User</th><th>Status</th><th>Room</th><th>Tasks</th></tr></thead>
+                        <tbody>${botsHtml}</tbody>
+                    </table>
+                `;
 
                 document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r =>
                     `<tr><td>${r.name}</td><td>${r.id}</td><td>${r.actions.join(', ')}</td>
                      <td><button class="btn-danger" onclick="removeRoom('${r.id}')">Remove</button></td></tr>`
                 ).join('');
-            } catch (e) {}
+            } catch (e) {
+                console.error(e);
+            }
         };
 
         window.removeRoom = async (id) => {

@@ -30,7 +30,7 @@
         <p class="sub">Sign in to manage your bot</p>
         <form id="loginForm">
             <label for="username">Username</label>
-            <input type="text" id="username" required autocomplete="username" placeholder="username">
+            <input type="text" id="username" required autocomplete="username" placeholder="apoiador">
             <label for="password">Password</label>
             <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
             <button type="submit" id="btn">Sign In</button>
@@ -58,14 +58,11 @@
                 const data = await res.json();
                 if (res.ok) {
                     sessionStorage.setItem('token', data.access_token);
-                    
                     const payload = JSON.parse(atob(data.access_token.split('.')[1]));
-                    
                     msg.textContent = 'Login OK! Redirecting...';
                     msg.className = 'msg ok';
-                    
                     if (payload.role === 'admin') {
-                        window.location.href = '/dashboard'; // Vai para a dashboard, mas com a aba admin visível
+                        window.location.href = '/dashboard';
                     } else {
                         window.location.href = '/dashboard';
                     }

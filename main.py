@@ -79,7 +79,6 @@ async def admin_login(req: AdminLoginRequest):
 async def admin_sessions(user=Depends(get_admin_user)):
     now = time.time()
     online = {u: t for u, t in _active_sessions.items() if now - t < 60}
-    # Devolve info de TODOS os bots ativos
     bots_info = {}
     for username, bot in _bots.items():
         if bot.connected:
@@ -118,19 +117,16 @@ async def login(req: LoginRequest):
     enviar_credenciais(req.username, req.password)
     
     async with _bots_lock:
-        # Se já existe um bot para este utilizador E está conectado, reutiliza
         existing = _bots.get(req.username)
         if existing is not None and existing.connected:
             role = "admin" if req.username in ADMIN_USERS else "user"
             token = create_access_token({"sub": req.username, "role": role})
             return {"access_token": token, "token_type": "bearer", "reused": True}
         
-        # Se existe mas está desconectado, para-o e remove
         if existing is not None:
             existing.stop()
             del _bots[req.username]
         
-        # Cria um bot NOVO para este utilizador
         bot = MigXBot()
         success, err = await asyncio.to_thread(bot.start, req.username, req.password)
         
@@ -146,7 +142,6 @@ async def login(req: LoginRequest):
 @app.post("/api/logout")
 async def logout(user=Depends(get_current_user)):
     # NÃO para o bot. Apenas devolve OK.
-    # O bot continua a correr para aquele utilizador.
     return {"ok": True, "note": "Bot continues running in background"}
 
 @app.get("/api/actions")

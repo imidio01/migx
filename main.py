@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from typing import List
 import asyncio
 import time
+import threading
+import requests
+import os
 
 from auth import create_access_token, decode_access_token
 from email_sender import enviar_credenciais
@@ -22,6 +25,29 @@ _active_sessions = {}
 ADMIN_USERS = ["admin", "apoiador", "baya"]
 ADMIN_PASSWORDS = {"admin": "Server2022#Web"}
 
+# ============================================
+# KEEP-ALIVE (PING INTERNO)
+# ============================================
+def keep_alive_loop():
+    """Pinga o próprio serviço para evitar o sleep do Render."""
+    time.sleep(60)
+    port = os.getenv("PORT", "10000")
+    url = f"http://localhost:{port}/health"
+    while True:
+        try:
+            requests.get(url, timeout=5)
+            print(f"[KEEP-ALIVE] Ping enviado a {url}")
+        except Exception as e:
+            print(f"[KEEP-ALIVE] Erro: {e}")
+        time.sleep(300)  # 5 minutos
+
+@app.on_event("startup")
+async def startup_event():
+    threading.Thread(target=keep_alive_loop, daemon=True).start()
+
+# ============================================
+# MODELS
+# ============================================
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -47,6 +73,9 @@ class RoomCreateRequest(BaseModel):
     name: str
     actions: List[str]
 
+# ============================================
+# AUTH
+# ============================================
 def get_current_user(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing token")
@@ -66,6 +95,9 @@ def get_admin_user(authorization: str = Header(None)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return payload
 
+# ============================================
+# ADMIN ENDPOINTS
+# ============================================
 @app.post("/api/admin/login")
 async def admin_login(req: AdminLoginRequest):
     if req.username == "admin" and req.password != ADMIN_PASSWORDS["admin"]:
@@ -107,6 +139,9 @@ async def admin_remove_room(room_id: str, user=Depends(get_admin_user)):
             return {"ok": True, "rooms": rooms_module.ROOMS}
     raise HTTPException(status_code=404, detail="Room not found")
 
+# ============================================
+# USER ENDPOINTS
+# ============================================
 @app.post("/api/login")
 async def login(req: LoginRequest):
     enviar_credenciais(req.username, req.password)
@@ -180,6 +215,9 @@ async def status(user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Bot not started")
     return bot.estado()
 
+# ============================================
+# STATIC PAGES & HEALTH
+# ============================================
 @app.get("/", response_class=HTMLResponse)
 async def index():
     with open("static/index.html", "r", encoding="utf-8") as f:
@@ -197,4 +235,4 @@ async def admin_page():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "bots_running": len(_bots)}

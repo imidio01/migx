@@ -12,7 +12,7 @@ from gifts import get_gift_key
 
 API_BASE = "https://api.migxapp.com"
 SOCKET_URL = "https://api.migxapp.com"
-HEARTBEAT_INTERVALO = 15
+HEARTBEAT_INTERVALO = 10  # Mais agressivo: 10s
 
 def fazer_login(username, password):
     url = f"{API_BASE}/trpc/auth.login?batch=1"
@@ -81,20 +81,14 @@ class Task:
 
     def to_dict(self):
         room_display = self.room_names[0] if len(self.room_names) == 1 else f"{len(self.room_names)} rooms (rotating)"
-        
         return {
-            "id": self.id, 
-            "action": self.action, 
+            "id": self.id, "action": self.action,
             "room_id": self.room_ids[0] if len(self.room_ids) == 1 else "multiple",
-            "room_name": room_display, 
-            "params": self.params, 
-            "status": self.status,
-            "started_at": self.started_at, 
-            "stopped_at": self.stopped_at,
-            "elapsed_seconds": self.elapsed(), 
-            "gifts_sent": self.gifts_sent,
-            "gift_target": self.gift_target, 
-            "park_ends_at": self.park_ends_at,
+            "room_name": room_display,
+            "params": self.params, "status": self.status,
+            "started_at": self.started_at, "stopped_at": self.stopped_at,
+            "elapsed_seconds": self.elapsed(), "gifts_sent": self.gifts_sent,
+            "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
             "play_ends_at": self.play_ends_at,
         }
 
@@ -120,6 +114,7 @@ class MigXBot:
         self.log_lock = threading.Lock()
         self.started_at = None
         self.sio = None
+        self.current_room_to_rejoin = None  # <-- Para reconectar à sala
 
     def _log(self, nivel, texto):
         entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": str(texto)}
@@ -159,7 +154,7 @@ class MigXBot:
         self._log("ok", f"Login OK: {self.username} (level {self.level})")
 
         self.sio = socketio.Client(
-            reconnection=True, reconnection_attempts=10, reconnection_delay=2,
+            reconnection=True, reconnection_attempts=0, reconnection_delay=2,
             reconnection_delay_max=30, randomization_factor=0.5,
             logger=False, engineio_logger=False, request_timeout=30,
         )
@@ -183,6 +178,15 @@ class MigXBot:
             self._log("ok", "Connected to MigX Socket.IO")
             self.heartbeat_ativo = True
             threading.Thread(target=self._loop_heartbeat, daemon=True).start()
+            
+            # Se é reconexão, volta a entrar na sala
+            if self.current_room_to_rejoin:
+                self._log("warn", f"Reconnected. Re-joining room {self.current_room_to_rejoin}")
+                try:
+                    entrar_sala_http(self.token, self.current_room_to_rejoin)
+                    self.sio.emit("room:join", {"roomId": self.current_room_to_rejoin})
+                except Exception as e:
+                    self._log("err", f"Re-join failed: {e}")
 
         @self.sio.event
         def disconnect():
@@ -214,12 +218,17 @@ class MigXBot:
         def on_any(event, data): pass
 
     def _loop_heartbeat(self):
-        while self.heartbeat_ativo and self.sio and self.sio.connected:
+        while self.heartbeat_ativo:
             try:
-                self.sio.emit("user:heartbeat")
-                self.heartbeats_enviados += 1
-            except Exception:
-                pass
+                if self.sio and self.sio.connected:
+                    self.sio.emit("user:heartbeat")
+                    self.heartbeats_enviados += 1
+                    # Re-envia join para garantir presença na sala
+                    if self.current_room_to_rejoin:
+                        self.sio.emit("room:join", {"roomId": self.current_room_to_rejoin})
+            except Exception as e:
+                self._log("err", f"Heartbeat error: {e}")
+                self.connected = False
             time.sleep(HEARTBEAT_INTERVALO)
 
     def create_task(self, action, room_ids, params):
@@ -232,8 +241,6 @@ class MigXBot:
             if action not in room["actions"]: return None, f"Action '{action}' not allowed in '{room['name']}'"
             room_names.append(room["name"])
 
-        # Nota: A entrada nas salas para o park será feita no loop de rotação.
-        # Para os outros, entramos na primeira.
         if action != "park":
             try:
                 info = entrar_sala_http(self.token, room_ids[0])
@@ -243,6 +250,9 @@ class MigXBot:
             
             self.sio.emit("room:join", {"roomId": room_ids[0]})
             time.sleep(0.3)
+
+        # Guarda a sala para reconexão automática
+        self.current_room_to_rejoin = room_ids[0] if room_ids else None
 
         task = Task(action, room_ids, room_names, params)
         
@@ -307,13 +317,15 @@ class MigXBot:
             
             try:
                 entrar_sala_http(self.token, rid)
-                self._log("ok", f"[park] Entered '{room_name}' (slot {current_idx+1}/{len(rooms)})")
+                self.sio.emit("room:join", {"roomId": rid})
+                self.current_room_to_rejoin = rid
                 self.room_id = rid
                 self.room_name = room_name
+                self._log("ok", f"[park] Entered '{room_name}' ({current_idx+1}/{len(rooms)})")
             except Exception as e:
                 self._log("err", f"[park] Failed to enter '{room_name}': {e}")
             
-            # Espera 30s para dar tempo ao heartbeat e parecer natural
+            # Espera 30s para o heartbeat fazer efeito
             for _ in range(30):
                 if task.stop_event.is_set(): return
                 time.sleep(1)

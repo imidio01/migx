@@ -32,12 +32,11 @@ class AdminLoginRequest(BaseModel):
 
 class TaskCreateRequest(BaseModel):
     action: str
-    room_id: str
+    room_ids: List[str]
     gift_key: str = "fly"
     gift_count: int = 1
     gift_interval: float = 10.0
     park_duration_min: int = 0
-    # Novos parâmetros para jogos
     bet_min: int = 10
     bet_max: int = 100
     bet_count: int = 2
@@ -157,7 +156,7 @@ async def create_task(req: TaskCreateRequest, user=Depends(get_current_user)):
         "bet_min": req.bet_min, "bet_max": req.bet_max, "bet_count": req.bet_count,
         "play_duration_min": req.play_duration_min,
     }
-    task, err = await asyncio.to_thread(bot.create_task, req.action, req.room_id, params)
+    task, err = await asyncio.to_thread(bot.create_task, req.action, req.room_ids, params)
     if not task:
         raise HTTPException(status_code=400, detail=err or "Failed to create task")
     return {"ok": True, "task": task.to_dict()}

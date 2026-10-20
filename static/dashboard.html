@@ -2,230 +2,283 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MigX Bot - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MigX Bot - Pro Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #11111b; color: #cdd6f4; min-height: 100vh; padding: 1.5rem; }
-        .container { max-width: 1300px; margin: 0 auto; }
-        header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-        h1 { font-size: 1.5rem; color: #89b4fa; }
-        .btn { padding: 0.6rem 1.2rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-        .btn-logout { background: #f38ba8; color: #1e1e2e; }
-        .btn-primary { background: #89b4fa; color: #1e1e2e; padding: 0.75rem 1.6rem; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
-        .btn-primary:hover { opacity: 0.9; }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-danger { background: #f38ba8; color: #1e1e2e; border: none; border-radius: 6px; padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
-        .btn-danger:hover { opacity: 0.85; }
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
 
-        .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.2rem; border-bottom: 1px solid #313244; flex-wrap: wrap; }
-        .tab { padding: 0.7rem 1.4rem; background: transparent; border: none; color: #a6adc8; font-weight: 600; cursor: pointer; font-size: 0.95rem; border-bottom: 2px solid transparent; }
-        .tab:hover { color: #cdd6f4; }
-        .tab.active { color: #89b4fa; border-bottom-color: #89b4fa; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-        .tab-content { display: none; }
+        .container { width: 100%; max-width: 1200px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 1.5rem; }
+        h1 { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+        h1 i { color: var(--primary); }
+
+        .btn-logout { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.6rem 1.2rem; border-radius: 50px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+        .btn-logout:hover { background: rgba(239, 68, 68, 0.4); }
+
+        .tabs { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 1.5rem; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-muted); padding: 0.8rem 1.5rem; border-radius: 50px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: 0.3s; display: flex; align-items: center; gap: 0.5rem; }
+        .tab.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.2rem; }
-        .card .label { font-size: 0.75rem; text-transform: uppercase; color: #a6adc8; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
-        .card .value { font-size: 1.5rem; font-weight: 700; color: #cdd6f4; }
-        .card .value.small { font-size: 1rem; word-break: break-all; }
-        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
-        .dot-on { background: #a6e3a1; box-shadow: 0 0 8px #a6e3a1; }
-        .dot-off { background: #f38ba8; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .card { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .card .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 1.8rem; font-weight: 700; }
+        .card .value.small { font-size: 1.1rem; word-break: break-all; }
+        
+        .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot.on { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .dot.off { background: var(--danger); }
 
-        .action-panel { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.3rem; margin-bottom: 1.5rem; }
-        .action-panel h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 1rem; }
-        .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.8rem; }
-        .field { display: flex; flex-direction: column; gap: 0.3rem; }
-        .field label { font-size: 0.8rem; color: #a6adc8; font-weight: 600; }
-        .field select, .field input { padding: 0.7rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; min-width: 140px; }
-        .field select:focus, .field input:focus { outline: none; border-color: #89b4fa; }
+        .panel { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .panel h2 { font-size: 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .form-control { width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: white; padding: 0.8rem 1rem; border-radius: 10px; font-size: 1rem; transition: 0.3s; }
+        .form-control:focus { outline: none; border-color: var(--primary); background: rgba(15, 23, 42, 0.9); }
+        
+        .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .col { flex: 1; min-width: 140px; }
 
-        .room-picker { position: relative; min-width: 240px; }
-        .room-picker input { width: 100%; }
-        .room-list { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: #313244; border: 1px solid #45475a; border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 20; display: none; }
-        .room-list.open { display: block; }
-        .room-list .room-item { padding: 0.6rem 1rem; cursor: pointer; font-size: 0.9rem; }
-        .room-list .room-item:hover { background: #45475a; }
-        .room-list .room-item.selected { color: #89b4fa; font-weight: 600; }
+        .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 1rem; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .apply-msg { font-size: 0.85rem; margin-top: 0.6rem; min-height: 1.2rem; }
-        .apply-msg.ok { color: #a6e3a1; }
-        .apply-msg.err { color: #f38ba8; }
+        .room-trigger { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .room-trigger i { color: var(--text-muted); }
 
-        .tasks-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1rem; }
-        .tasks-card h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: flex-end; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #1e293b; width: 100%; max-width: 500px; border-radius: 20px 20px 0 0; padding: 1.5rem; animation: slideUp 0.3s ease; max-height: 85vh; display: flex; flex-direction: column; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @media (min-width: 600px) { .modal-overlay { align-items: center; } .modal-content { border-radius: 20px; } }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .btn-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+        
+        .room-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 0.5rem; margin-bottom: 1rem; }
+        .room-item { padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; border: 1px solid transparent; }
+        .room-item:hover { background: rgba(255,255,255,0.1); }
+        .room-item.selected { border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.1); }
+        .room-item.selected::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: var(--primary); }
+
+        .selected-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+        .chip { background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+        .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th, td { text-align: left; padding: 0.7rem 0.6rem; border-bottom: 1px solid #313244; }
-        th { color: #a6adc8; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
-        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
-        .badge-running { background: #a6e3a1; color: #1e1e2e; }
-        .badge-finished { background: #6c7086; color: #cdd6f4; }
-        .badge-stopped { background: #f38ba8; color: #1e1e2e; }
-        .empty { color: #6c7086; font-style: italic; padding: 1rem 0; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--glass-border); }
+        th { color: var(--text-muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; }
+        
+        .badge { padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+        .badge.running { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .badge.finished { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+        .badge.stopped { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .btn-stop { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; }
+        .btn-stop:hover { background: rgba(239, 68, 68, 0.4); }
 
-        .log-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1rem; }
-        .log-card h2 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
-        #log { background: #11111b; border-radius: 8px; padding: 0.8rem; font-family: 'Consolas', monospace; font-size: 0.85rem; height: 350px; overflow-y: auto; line-height: 1.5; }
-        .log-line { white-space: pre-wrap; word-break: break-word; }
-        .log-info { color: #cdd6f4; } .log-ok { color: #a6e3a1; } .log-warn { color: #f9e2af; } .log-err { color: #f38ba8; }
-        .log-ts { color: #6c7086; margin-right: 0.5rem; }
-
-        @media (max-width: 600px) { body { padding: 1rem; } .card .value { font-size: 1.2rem; } }
+        .log-box { background: #000; border-radius: 12px; padding: 1rem; font-family: 'Consolas', monospace; font-size: 0.85rem; height: 300px; overflow-y: auto; border: 1px solid var(--glass-border); }
+        .log-line { margin-bottom: 0.3rem; line-height: 1.4; word-break: break-all; }
+        .log-line .time { color: #64748b; margin-right: 0.5rem; }
+        .log-line.info { color: #e2e8f0; }
+        .log-line.ok { color: var(--success); }
+        .log-line.warn { color: #fbbf24; }
+        .log-line.err { color: var(--danger); }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎁 MigX Bot — Dashboard</h1>
-            <button class="btn btn-logout" id="logout">Logout</button>
+            <h1><i class="fa-solid fa-robot"></i> MigX Pro</h1>
+            <button class="btn-logout" id="logout"><i class="fa-solid fa-right-from-bracket"></i></button>
         </header>
 
         <div class="tabs">
-            <button class="tab active" data-tab="overview">Overview</button>
-            <button class="tab" data-tab="tasks">Active Tasks</button>
-            <button class="tab" data-tab="new">New Task</button>
-            <button class="tab" data-tab="admin" id="admin-tab" style="display: none; color: #f38ba8;">Admin Panel</button>
+            <button class="tab active" data-tab="overview"><i class="fa-solid fa-chart-pie"></i> Overview</button>
+            <button class="tab" data-tab="tasks"><i class="fa-solid fa-list-check"></i> Tasks</button>
+            <button class="tab" data-tab="new"><i class="fa-solid fa-plus"></i> New Task</button>
+            <button class="tab" data-tab="admin" id="admin-tab" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin</button>
         </div>
 
         <div class="tab-content active" id="tab-overview">
             <div class="grid">
-                <div class="card"><div class="label">Status</div><div class="value" id="status"><span class="status-dot dot-off"></span>—</div></div>
+                <div class="card">
+                    <div class="label">Status</div>
+                    <div class="status-indicator" id="status"><span class="dot off"></span> Offline</div>
+                </div>
                 <div class="card"><div class="label">User</div><div class="value small" id="username">—</div></div>
-                <div class="card"><div class="label">Room</div><div class="value small" id="room">—</div></div>
-                <div class="card"><div class="label">Members</div><div class="value" id="members">—</div></div>
+                <div class="card"><div class="label">Current Room</div><div class="value small" id="room">—</div></div>
                 <div class="card"><div class="label">Balance</div><div class="value" id="balance">—</div></div>
-                <div class="card"><div class="label">Heartbeats</div><div class="value" id="hb">0</div></div>
                 <div class="card"><div class="label">Uptime</div><div class="value small" id="uptime">0s</div></div>
-                <div class="card"><div class="label">Running tasks</div><div class="value" id="running-count">0</div></div>
+                <div class="card"><div class="label">Active Tasks</div><div class="value" id="running-count">0</div></div>
             </div>
         </div>
 
         <div class="tab-content" id="tab-tasks">
-            <div class="tasks-card">
-                <h2>All tasks</h2>
-                <table id="tasks-table">
-                    <thead><tr><th>Action</th><th>Room</th><th>Params</th><th>Progress</th><th>Elapsed</th><th>Status</th><th></th></tr></thead>
-                    <tbody id="tasks-body"></tbody>
-                </table>
-                <div class="empty" id="tasks-empty">No tasks yet.</div>
+            <div class="panel">
+                <h2><i class="fa-solid fa-list-check"></i> Task History</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Action</th><th>Room</th><th>Params</th><th>Status</th><th></th></tr></thead>
+                        <tbody id="tasks-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <div class="tab-content" id="tab-new">
-            <div class="action-panel">
-                <h2>Create a new task</h2>
-                <div class="action-row">
-                    <div class="field">
-                        <label for="action-select">Action</label>
-                        <select id="action-select">
-                            <option value="park">Park (stay idle)</option>
-                            <option value="gift">Send Gifts</option>
-                            <option value="royale">Play Royale Battle</option>
-                            <option value="cricket">Play Cricket</option>
-                            <option value="dice">Play Dice</option>
-                            <option value="lowcard">Play Lowcard</option>
-                        </select>
+            <div class="panel">
+                <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Create Task</h2>
+                
+                <div class="form-group">
+                    <label>Action</label>
+                    <select id="action-select" class="form-control">
+                        <option value="park">Park (Stay Idle)</option>
+                        <option value="gift">Send Gifts</option>
+                        <option value="royale">Play Royale Battle</option>
+                        <option value="cricket">Play Cricket</option>
+                        <option value="dice">Play Dice</option>
+                        <option value="lowcard">Play Lowcard</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Target Rooms (Select multiple for Park)</label>
+                    <div class="form-control room-trigger" id="room-trigger">
+                        <span id="selected-room-name" style="color:var(--text-muted)">Select room(s)...</span>
+                        <i class="fa-solid fa-chevron-down"></i>
                     </div>
-                    <div class="field room-picker">
-                        <label for="room-search">Room</label>
-                        <input type="text" id="room-search" placeholder="Search or pick a room...">
-                        <div class="room-list" id="room-list"></div>
+                    <div class="selected-chips" id="selected-chips"></div>
+                </div>
+
+                <div id="gift-fields" style="display:none;">
+                    <div class="form-group">
+                        <label>Gift Name</label>
+                        <input type="text" id="gift-key" class="form-control" list="gift-list" placeholder="e.g. Fly">
+                        <datalist id="gift-list"></datalist>
+                    </div>
+                    <div class="row">
+                        <div class="col"><div class="form-group"><label>Quantity</label><input type="number" id="gift-count" class="form-control" value="10"></div></div>
+                        <div class="col"><div class="form-group"><label>Interval (s)</label><input type="number" id="gift-interval" class="form-control" value="10"></div></div>
                     </div>
                 </div>
 
-                <!-- CAMPOS DINÂMICOS -->
-                <div id="dynamic-fields">
-                    <!-- GIFT -->
-                    <div class="action-row" id="gift-options" style="display:none;">
-                        <div class="field">
-                            <label>Gift name</label>
-                            <input type="text" id="gift-key" list="gift-list" value="fly" placeholder="Type or pick a gift...">
-                            <datalist id="gift-list"></datalist>
-                        </div>
-                        <div class="field"><label>How many</label><input type="number" id="gift-count" value="10" min="1" step="1"></div>
-                        <div class="field"><label>Interval (s)</label><input type="number" id="gift-interval" value="10" min="1" step="1"></div>
-                    </div>
-
-                    <!-- PARK -->
-                    <div class="action-row" id="park-options" style="display:none;">
-                        <div class="field"><label>Duration (minutes, 0 = infinite)</label><input type="number" id="park-duration" value="0" min="0" step="1"></div>
-                    </div>
-
-                    <!-- JOGOS (Royale, Cricket, Dice, Lowcard) -->
-                    <div class="action-row" id="game-options" style="display:none;">
-                        <div class="field"><label>Min Bet</label><input type="number" id="bet-min" value="10" min="1" step="1"></div>
-                        <div class="field"><label>Max Bet</label><input type="number" id="bet-max" value="100" min="1" step="1"></div>
-                        <div class="field"><label>Num. Bets</label><input type="number" id="bet-count" value="2" min="1" step="1"></div>
-                        <div class="field"><label>Play Duration (minutes, 0 = infinite)</label><input type="number" id="play-duration" value="0" min="0" step="1"></div>
+                <div id="park-fields" style="display:none;">
+                    <div class="form-group">
+                        <label>Duration (mins, 0 = infinite)</label>
+                        <input type="number" id="park-duration" class="form-control" value="0">
                     </div>
                 </div>
 
-                <div class="apply-msg" id="apply-msg"></div>
-                <button class="btn-primary" id="apply" style="margin-top:0.8rem;">Create task</button>
+                <div id="game-fields" style="display:none;">
+                    <div class="row">
+                        <div class="col"><div class="form-group"><label>Min Bet</label><input type="number" id="bet-min" class="form-control" value="10"></div></div>
+                        <div class="col"><div class="form-group"><label>Max Bet</label><input type="number" id="bet-max" class="form-control" value="100"></div></div>
+                    </div>
+                    <div class="row">
+                        <div class="col"><div class="form-group"><label>Num Bets</label><input type="number" id="bet-count" class="form-control" value="2"></div></div>
+                        <div class="col"><div class="form-group"><label>Play Time (mins, 0=inf)</label><input type="number" id="play-duration" class="form-control" value="0"></div></div>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="btn-create" style="margin-top:1rem;">
+                    <i class="fa-solid fa-rocket"></i> Launch Task
+                </button>
+                <div id="msg" style="margin-top:1rem; text-align:center; font-size:0.9rem;"></div>
             </div>
         </div>
 
         <div class="tab-content" id="tab-admin">
-            <div class="grid">
-                <div class="card">
-                    <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Online Users</h3>
-                    <div id="admin-online-users" style="font-size:0.9rem;">—</div>
+            <div class="panel">
+                <h2><i class="fa-solid fa-users"></i> Active Bots</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>User</th><th>Room</th><th>Task</th><th>Status</th></tr></thead>
+                        <tbody id="admin-bots-body"></tbody>
+                    </table>
                 </div>
             </div>
-
-            <div class="card" style="grid-column: span 2; margin-bottom:1.5rem;">
-                <h3 style="color:#89b4fa; margin-bottom:0.5rem;">Active Bots</h3>
-                <div id="admin-bot-status" style="font-size:0.9rem;">—</div>
-            </div>
-
-            <div class="tasks-card">
-                <h2>Manage Rooms</h2>
-                <table>
-                    <thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead>
-                    <tbody id="admin-rooms-body"></tbody>
-                </table>
-                <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-                    <input type="text" id="new-room-id" placeholder="Room ID" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:200px;">
-                    <input type="text" id="new-room-name" placeholder="Room name" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:150px;">
-                    <input type="text" id="new-room-actions" placeholder="park,gift" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:120px;">
-                    <button class="btn-primary" id="add-room-btn">Add Room</button>
+            <div class="panel">
+                <h2><i class="fa-solid fa-door-open"></i> Manage Rooms</h2>
+                <div class="table-responsive" style="margin-bottom:1rem;">
+                    <table><tbody id="admin-rooms-body"></tbody></table>
                 </div>
+                <div class="row">
+                    <div class="col"><input type="text" id="new-room-id" class="form-control" placeholder="Room ID"></div>
+                    <div class="col"><input type="text" id="new-room-name" class="form-control" placeholder="Room Name"></div>
+                    <div class="col"><input type="text" id="new-room-actions" class="form-control" placeholder="park,gift"></div>
+                </div>
+                <button class="btn-primary" id="btn-add-room" style="margin-top:1rem;">Add Room</button>
             </div>
         </div>
 
-        <div class="log-card">
-            <h2>Real-time log</h2>
-            <div id="log"></div>
+        <div class="panel">
+            <h2><i class="fa-solid fa-terminal"></i> Live Logs</h2>
+            <div class="log-box" id="log"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="room-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Room(s)</h3>
+                <button class="btn-close" onclick="closeModal()">&times;</button>
+            </div>
+            <input type="text" id="search-room" class="form-control" placeholder="Search rooms..." style="margin-bottom:1rem;">
+            <div class="room-list" id="room-list"></div>
+            <button class="btn-primary" onclick="closeModal()">Confirm Selection</button>
         </div>
     </div>
 
     <script>
         const token = sessionStorage.getItem('token');
-        if (!token) { window.location.href = '/'; }
+        if (!token) window.location.href = '/';
+
+        // Helper para escapar HTML e evitar [object Object]
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
         let isAdmin = false;
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));
             if (payload.role === 'admin') {
                 isAdmin = true;
-                document.getElementById('admin-tab').style.display = 'block';
+                document.getElementById('admin-tab').style.display = 'flex';
             }
         } catch (e) {}
 
         let ALL_ROOMS = [];
-        let SELECTED_ROOM_ID = null;
-        let CURRENT_TASKS = [];
-
-        const fmtUptime = s => {
-            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-            if (h) return `${h}h ${m}m`;
-            if (m) return `${m}m ${sec}s`;
-            return `${sec}s`;
-        };
-        const escapeHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        let SELECTED_ROOMS = []; 
 
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -237,125 +290,139 @@
             });
         });
 
-        const openRoomList = () => {
-            const list = document.getElementById('room-list');
-            renderRoomList();
-            list.classList.add('open');
-        };
-        const closeRoomList = () => {
-            setTimeout(() => document.getElementById('room-list').classList.remove('open'), 150);
-        };
-        const renderRoomList = () => {
-            const filter = document.getElementById('room-search').value.toLowerCase();
-            const list = document.getElementById('room-list');
-            const filtered = ALL_ROOMS.filter(r => r.name.toLowerCase().includes(filter));
-            if (filtered.length === 0) {
-                list.innerHTML = '<div class="room-item" style="color:#6c7086">No rooms match</div>';
-                return;
-            }
-            list.innerHTML = filtered.map(r =>
-                `<div class="room-item ${r.id === SELECTED_ROOM_ID ? 'selected' : ''}" data-id="${r.id}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>`
-            ).join('');
-            list.querySelectorAll('.room-item[data-id]').forEach(item => {
-                item.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    SELECTED_ROOM_ID = item.dataset.id;
-                    document.getElementById('room-search').value = item.dataset.name;
-                    closeRoomList();
-                });
-            });
-        };
-
-        const updateActionFields = () => {
+        const updateForm = () => {
             const action = document.getElementById('action-select').value;
-            document.getElementById('gift-options').style.display = (action === 'gift') ? 'flex' : 'none';
-            document.getElementById('park-options').style.display = (action === 'park') ? 'flex' : 'none';
-            document.getElementById('game-options').style.display = (['royale', 'cricket', 'dice', 'lowcard'].includes(action)) ? 'flex' : 'none';
+            document.getElementById('gift-fields').style.display = (action === 'gift') ? 'block' : 'none';
+            document.getElementById('park-fields').style.display = (action === 'park') ? 'block' : 'none';
+            document.getElementById('game-fields').style.display = ['royale','cricket','dice','lowcard'].includes(action) ? 'block' : 'none';
         };
+        document.getElementById('action-select').addEventListener('change', updateForm);
+        updateForm();
 
-        const loadRooms = async () => {
-            try {
-                const res = await fetch('/api/actions');
-                const data = await res.json();
-                ALL_ROOMS = data.rooms;
-                if (ALL_ROOMS.length && !SELECTED_ROOM_ID) {
-                    SELECTED_ROOM_ID = ALL_ROOMS[0].id;
-                    document.getElementById('room-search').value = ALL_ROOMS[0].name;
-                }
-                document.getElementById('room-search').addEventListener('focus', openRoomList);
-                document.getElementById('room-search').addEventListener('input', openRoomList);
-                document.getElementById('room-search').addEventListener('blur', closeRoomList);
-            } catch (e) {}
-        };
-
-        const loadGifts = async () => {
-            try {
-                const res = await fetch('/api/gifts');
-                const data = await res.json();
-                const datalist = document.getElementById('gift-list');
-                datalist.innerHTML = data.gifts.map(g => 
-                    `<option value="${g.name}">${g.name} (${g.price} coins)</option>`
-                ).join('');
-            } catch (e) {}
-        };
-
-        const renderTasks = (tasks) => {
-            CURRENT_TASKS = tasks;
-            const tbody = document.getElementById('tasks-body');
-            const empty = document.getElementById('tasks-empty');
-            if (!tasks.length) {
-                tbody.innerHTML = '';
-                empty.style.display = 'block';
+        const renderChips = () => {
+            const container = document.getElementById('selected-chips');
+            if (SELECTED_ROOMS.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('selected-room-name').textContent = 'Select room(s)...';
+                document.getElementById('selected-room-name').style.color = 'var(--text-muted)';
                 return;
             }
-            empty.style.display = 'none';
-            tbody.innerHTML = tasks.map(t => {
-                let params = '';
-                if (t.action === 'gift') {
-                    params = `${t.params.gift_count}x ${t.params.gift_key} @ ${t.params.gift_interval}s`;
-                } else if (t.action === 'park') {
-                    params = t.params.park_duration_min ? `${t.params.park_duration_min} min` : 'infinite';
-                } else {
-                    params = `Bet ${t.params.bet_min}-${t.params.bet_max}, ${t.params.bet_count} bets`;
-                    if (t.params.play_duration_min) params += `, ${t.params.play_duration_min} min`;
-                }
-                
-                let progress = `${t.gifts_sent} actions`;
-                if (t.action === 'gift') progress = `${t.gifts_sent}/${t.gift_target}`;
-                if (t.action === 'park') progress = t.park_ends_at ? fmtUptime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left' : '∞';
-                if (t.play_ends_at) progress = fmtUptime(Math.max(0, Math.floor(t.play_ends_at - Date.now()/1000))) + ' left';
-                
-                const badge = t.status === 'running' ? 'badge-running' : t.status === 'stopped' ? 'badge-stopped' : 'badge-finished';
-                const stopBtn = t.status === 'running'
-                    ? `<button class="btn-danger" data-stop="${t.id}">Stop</button>`
-                    : '';
-                return `<tr>
-                    <td><strong>${t.action}</strong></td>
-                    <td>${escapeHtml(t.room_name)}</td>
-                    <td>${params}</td>
-                    <td>${progress}</td>
-                    <td>${fmtUptime(t.elapsed_seconds)}</td>
-                    <td><span class="badge ${badge}">${t.status}</span></td>
-                    <td>${stopBtn}</td>
-                </tr>`;
-            }).join('');
-            tbody.querySelectorAll('button[data-stop]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    try {
-                        await fetch(`/api/tasks/${btn.dataset.stop}/stop`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                    } catch (e) {}
+            document.getElementById('selected-room-name').textContent = `${SELECTED_ROOMS.length} room(s) selected`;
+            document.getElementById('selected-room-name').style.color = 'var(--text-main)';
+            
+            container.innerHTML = SELECTED_ROOMS.map(r => `
+                <div class="chip">
+                    ${escapeHtml(r.name)}
+                    <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="removeRoomFromSelection('${r.id}')"></i>
+                </div>
+            `).join('');
+        };
+
+        window.removeRoomFromSelection = (id) => {
+            SELECTED_ROOMS = SELECTED_ROOMS.filter(r => r.id !== id);
+            renderChips();
+            renderModalRooms(document.getElementById('search-room').value);
+        };
+
+        const openModal = () => {
+            document.getElementById('room-modal').classList.add('active');
+            document.getElementById('search-room').value = '';
+            renderModalRooms('');
+        };
+        const closeModal = () => {
+            document.getElementById('room-modal').classList.remove('active');
+            renderChips();
+        };
+        
+        const renderModalRooms = (filter) => {
+            const list = document.getElementById('room-list');
+            const filtered = ALL_ROOMS.filter(r => r.name.toLowerCase().includes(filter.toLowerCase()));
+            
+            list.innerHTML = filtered.map(r => {
+                const isSelected = SELECTED_ROOMS.some(s => s.id === r.id);
+                return `
+                <div class="room-item ${isSelected ? 'selected' : ''}" data-id="${r.id}" data-name="${escapeHtml(r.name)}">
+                    <span>${escapeHtml(r.name)}</span>
+                </div>`;
+            }).join('') || '<div style="color:var(--text-muted); text-align:center; padding:1rem;">No rooms found</div>';
+
+            list.querySelectorAll('.room-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = el.dataset.id;
+                    const name = el.dataset.name;
+                    if (SELECTED_ROOMS.some(r => r.id === id)) {
+                        SELECTED_ROOMS = SELECTED_ROOMS.filter(r => r.id !== id);
+                    } else {
+                        SELECTED_ROOMS.push({ id, name });
+                    }
+                    renderModalRooms(filter);
                 });
             });
         };
 
-        const renderLog = (logs) => {
-            const el = document.getElementById('log');
-            const wasBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-            el.innerHTML = logs.map(l => `<div class="log-line log-${l.nivel}"><span class="log-ts">${l.ts}</span>${escapeHtml(l.texto)}</div>`).join('');
-            if (wasBottom) el.scrollTop = el.scrollHeight;
+        document.getElementById('room-trigger').addEventListener('click', openModal);
+        document.getElementById('search-room').addEventListener('input', (e) => renderModalRooms(e.target.value));
+
+        const loadData = async () => {
+            try {
+                const [actRes, giftRes] = await Promise.all([fetch('/api/actions'), fetch('/api/gifts')]);
+                const actData = await actRes.json();
+                const giftData = await giftRes.json();
+                ALL_ROOMS = actData.rooms;
+                document.getElementById('gift-list').innerHTML = giftData.gifts.map(g => `<option value="${escapeHtml(g.name)}">`).join('');
+            } catch (e) { console.error(e); }
+        };
+
+        document.getElementById('btn-create').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-create');
+            const msg = document.getElementById('msg');
+            if (SELECTED_ROOMS.length === 0) { msg.innerHTML = '<span style="color:var(--danger)">Please select at least one room!</span>'; return; }
+
+            const action = document.getElementById('action-select').value;
+            const body = { action, room_ids: SELECTED_ROOMS.map(r => r.id) };
+
+            if (action === 'gift') {
+                body.gift_key = document.getElementById('gift-key').value;
+                body.gift_count = parseInt(document.getElementById('gift-count').value);
+                body.gift_interval = parseFloat(document.getElementById('gift-interval').value);
+            } else if (action === 'park') {
+                body.park_duration_min = parseInt(document.getElementById('park-duration').value);
+            } else {
+                body.bet_min = parseInt(document.getElementById('bet-min').value);
+                body.bet_max = parseInt(document.getElementById('bet-max').value);
+                body.bet_count = parseInt(document.getElementById('bet-count').value);
+                body.play_duration_min = parseInt(document.getElementById('play-duration').value);
+            }
+
+            btn.disabled = true;
+            msg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Launching...';
+
+            try {
+                const res = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    msg.innerHTML = '<span style="color:var(--success)"><i class="fa-solid fa-check"></i> Task created!</span>';
+                    refresh();
+                } else {
+                    const err = await res.json();
+                    msg.innerHTML = `<span style="color:var(--danger)">${escapeHtml(err.detail)}</span>`;
+                }
+            } catch (e) { msg.innerHTML = '<span style="color:var(--danger)">Network error</span>'; }
+            btn.disabled = false;
+        });
+
+        document.getElementById('logout').addEventListener('click', () => {
+            sessionStorage.clear();
+            window.location.href = '/';
+        });
+
+        const fmtTime = s => {
+            if (s < 60) return s + 's';
+            if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+            return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
         };
 
         const refresh = async () => {
@@ -365,167 +432,95 @@
                 if (!res.ok) return;
                 const d = await res.json();
 
-                const statusEl = document.getElementById('status');
-                if (d.connected) {
-                    statusEl.innerHTML = '<span class="status-dot dot-on"></span>Online';
-                    statusEl.style.color = '#a6e3a1';
-                } else {
-                    statusEl.innerHTML = '<span class="status-dot dot-off"></span>Offline';
-                    statusEl.style.color = '#f38ba8';
-                }
+                const st = document.getElementById('status');
+                st.innerHTML = d.connected ? '<span class="dot on"></span> Online' : '<span class="dot off"></span> Offline';
+                st.style.color = d.connected ? 'var(--success)' : 'var(--danger)';
                 document.getElementById('username').textContent = d.username || '—';
                 document.getElementById('room').textContent = d.room_name || '—';
-                document.getElementById('members').textContent = d.room_members ?? '—';
                 document.getElementById('balance').textContent = d.saldo ?? '—';
-                document.getElementById('hb').textContent = d.heartbeats_enviados;
-                document.getElementById('uptime').textContent = fmtUptime(d.uptime_segundos);
-                document.getElementById('running-count').textContent = (d.tasks || []).filter(t => t.status === 'running').length;
-                renderTasks(d.tasks || []);
-                renderLog(d.logs);
+                document.getElementById('uptime').textContent = fmtTime(d.uptime_segundos);
+                
+                const activeTasks = (d.tasks || []).filter(t => t.status === 'running');
+                document.getElementById('running-count').textContent = activeTasks.length;
+
+                document.getElementById('tasks-body').innerHTML = (d.tasks || []).map(t => {
+                    let pr = t.action === 'gift' ? `${t.gifts_sent}/${t.gift_target}` : `${t.gifts_sent} acts`;
+                    if (t.action === 'park') pr = t.park_ends_at ? fmtTime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left' : '∞';
+                    if (t.play_ends_at) pr = fmtTime(Math.max(0, Math.floor(t.play_ends_at - Date.now()/1000))) + ' left';
+
+                    const badge = t.status === 'running' ? 'running' : t.status === 'stopped' ? 'stopped' : 'finished';
+                    const btn = t.status === 'running' ? `<button class="btn-stop" onclick="stopTask('${t.id}')"><i class="fa-solid fa-stop"></i></button>` : '';
+                    
+                    return `<tr>
+                        <td><strong>${escapeHtml(t.action.toUpperCase())}</strong></td>
+                        <td>${escapeHtml(t.room_name)}</td>
+                        <td>${escapeHtml(pr)}</td>
+                        <td><span class="badge ${badge}">${t.status}</span></td>
+                        <td>${btn}</td>
+                    </tr>`;
+                }).join('') || '<tr><td colspan="5" style="text-align:center; color:var(--text-muted)">No tasks yet</td></tr>';
+
+                const logEl = document.getElementById('log');
+                const wasBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 40;
+                logEl.innerHTML = d.logs.map(l => {
+                    // Garante que o texto do log é sempre uma string válida
+                    const text = typeof l.texto === 'object' ? JSON.stringify(l.texto) : String(l.texto);
+                    return `<div class="log-line ${l.nivel}"><span class="time">${l.ts}</span>${escapeHtml(text)}</div>`;
+                }).join('');
+                if (wasBottom) logEl.scrollTop = logEl.scrollHeight;
+
             } catch (e) {}
+        };
+
+        window.stopTask = async (id) => {
+            await fetch(`/api/tasks/${id}/stop`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            refresh();
         };
 
         const refreshAdmin = async () => {
             if (!isAdmin) return;
-            const headers = {'Authorization': `Bearer ${token}`};
             try {
-                const [sessRes, roomsRes] = await Promise.all([
-                    fetch('/api/admin/sessions', {headers}),
-                    fetch('/api/admin/rooms', {headers})
+                const [sess, rooms] = await Promise.all([
+                    fetch('/api/admin/sessions', {headers: {'Authorization': `Bearer ${token}`}}).then(r => r.json()),
+                    fetch('/api/admin/rooms', {headers: {'Authorization': `Bearer ${token}`}}).then(r => r.json())
                 ]);
-                const sess = await sessRes.json();
-                const rooms = await roomsRes.json();
 
-                document.getElementById('admin-online-users').textContent = 
-                    sess.online_users.length ? sess.online_users.join(', ') : 'None';
-
-                const bots = sess.active_bots || {};
                 let botsHtml = '';
-                
-                if (Object.keys(bots).length === 0) {
-                    botsHtml = '<tr><td colspan="4" style="color:#6c7086">No bots running</td></tr>';
-                } else {
-                    for (const [username, info] of Object.entries(bots)) {
-                        const tasksHtml = info.tasks.length 
-                            ? info.tasks.map(t => 
-                                `<div style="font-size:0.8rem; margin:2px 0;">
-                                    ${t.action} in <b>${t.room_name}</b> — ${t.status} (${t.gifts_sent} actions)
-                                </div>`
-                              ).join('')
-                            : '<span style="color:#6c7086">No tasks</span>';
-                        
-                        botsHtml += `<tr>
-                            <td><b>${username}</b></td>
-                            <td>${info.connected ? '<span class="badge badge-running">Online</span>' : '<span class="badge badge-stopped">Offline</span>'}</td>
-                            <td>${info.room_name || '—'}</td>
-                            <td>${tasksHtml}</td>
-                        </tr>`;
-                    }
+                for (const [u, info] of Object.entries(sess.active_bots || {})) {
+                    const tasks = info.tasks.map(t => t.action).join(', ') || 'None';
+                    botsHtml += `<tr><td>${escapeHtml(u)}</td><td>${escapeHtml(info.room_name || '—')}</td><td>${escapeHtml(tasks)}</td><td><span class="badge running">Online</span></td></tr>`;
                 }
+                document.getElementById('admin-bots-body').innerHTML = botsHtml || '<tr><td colspan="4" style="text-align:center;">No bots</td></tr>';
 
-                document.getElementById('admin-bot-status').innerHTML = `
-                    <table style="width:100%; margin-top:0.5rem;">
-                        <thead><tr><th>User</th><th>Status</th><th>Room</th><th>Tasks</th></tr></thead>
-                        <tbody>${botsHtml}</tbody>
-                    </table>
-                `;
-
-                document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r =>
-                    `<tr><td>${r.name}</td><td>${r.id}</td><td>${r.actions.join(', ')}</td>
-                     <td><button class="btn-danger" onclick="removeRoom('${r.id}')">Remove</button></td></tr>`
-                ).join('');
-            } catch (e) {
-                console.error(e);
-            }
+                document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r => `
+                    <tr>
+                        <td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.actions.join(', '))}</td>
+                        <td><button class="btn-stop" onclick="removeRoom('${r.id}')"><i class="fa-solid fa-trash"></i></button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {}
         };
 
         window.removeRoom = async (id) => {
-            if (!confirm('Remove this room?')) return;
+            if(!confirm('Remove room?')) return;
             await fetch(`/api/admin/rooms/${id}`, {method: 'DELETE', headers: {'Authorization': `Bearer ${token}`}});
-            refreshAdmin();
-            loadRooms();
+            refreshAdmin(); loadData();
         };
 
-        document.getElementById('add-room-btn').addEventListener('click', async () => {
-            const id = document.getElementById('new-room-id').value.trim();
-            const name = document.getElementById('new-room-name').value.trim();
-            const actions = document.getElementById('new-room-actions').value.split(',').map(s => s.trim()).filter(Boolean);
-            if (!id || !name || !actions.length) return;
-            const res = await fetch('/api/admin/rooms', {
+        document.getElementById('btn-add-room').addEventListener('click', async () => {
+            const id = document.getElementById('new-room-id').value;
+            const name = document.getElementById('new-room-name').value;
+            const acts = document.getElementById('new-room-actions').value.split(',').map(s=>s.trim());
+            if(!id || !name) return;
+            await fetch('/api/admin/rooms', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-                body: JSON.stringify({id, name, actions})
+                body: JSON.stringify({id, name, actions: acts})
             });
-            if (res.ok) {
-                document.getElementById('new-room-id').value = '';
-                document.getElementById('new-room-name').value = '';
-                refreshAdmin();
-                loadRooms();
-            }
+            refreshAdmin(); loadData();
         });
 
-        document.getElementById('apply').addEventListener('click', async () => {
-            const btn = document.getElementById('apply');
-            const msg = document.getElementById('apply-msg');
-            const action = document.getElementById('action-select').value;
-
-            if (!SELECTED_ROOM_ID) {
-                msg.textContent = 'Pick a room first.';
-                msg.className = 'apply-msg err';
-                return;
-            }
-
-            const body = { action, room_id: SELECTED_ROOM_ID };
-            
-            if (action === 'gift') {
-                body.gift_key = document.getElementById('gift-key').value.trim() || 'fly';
-                body.gift_count = parseInt(document.getElementById('gift-count').value) || 1;
-                body.gift_interval = parseFloat(document.getElementById('gift-interval').value) || 10;
-            } else if (action === 'park') {
-                body.park_duration_min = parseInt(document.getElementById('park-duration').value) || 0;
-            } else {
-                body.bet_min = parseInt(document.getElementById('bet-min').value) || 10;
-                body.bet_max = parseInt(document.getElementById('bet-max').value) || 100;
-                body.bet_count = parseInt(document.getElementById('bet-count').value) || 2;
-                body.play_duration_min = parseInt(document.getElementById('play-duration').value) || 0;
-            }
-
-            btn.disabled = true;
-            msg.textContent = 'Creating task...';
-            msg.className = 'apply-msg';
-
-            try {
-                const res = await fetch('/api/tasks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(body)
-                });
-                if (res.ok) {
-                    msg.textContent = 'Task created!';
-                    msg.className = 'apply-msg ok';
-                    refresh();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    msg.textContent = 'Error: ' + (err.detail || 'unknown');
-                    msg.className = 'apply-msg err';
-                }
-            } catch (e) {
-                msg.textContent = 'Network error.';
-                msg.className = 'apply-msg err';
-            }
-            btn.disabled = false;
-        });
-
-        document.getElementById('logout').addEventListener('click', async () => {
-            try { await fetch('/api/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); } catch (e) {}
-            sessionStorage.clear();
-            window.location.href = '/';
-        });
-
-        document.getElementById('action-select').addEventListener('change', updateActionFields);
-        updateActionFields();
-        loadRooms();
-        loadGifts();
+        loadData();
         refresh();
         setInterval(refresh, 2000);
         if (isAdmin) setInterval(refreshAdmin, 3000);

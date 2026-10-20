@@ -59,12 +59,12 @@ def enviar_mensagem_http(token, room_id, content):
 
 class Task:
     _counter = 0
-    def __init__(self, action, room_id, room_name, params):
+    def __init__(self, action, room_ids, room_names, params):
         Task._counter += 1
         self.id = f"t{Task._counter}-{uuid.uuid4().hex[:6]}"
         self.action = action
-        self.room_id = room_id
-        self.room_name = room_name
+        self.room_ids = room_ids
+        self.room_names = room_names
         self.params = params
         self.status = "running"
         self.started_at = time.time()
@@ -80,12 +80,21 @@ class Task:
         return int(end - self.started_at)
 
     def to_dict(self):
+        room_display = self.room_names[0] if len(self.room_names) == 1 else f"{len(self.room_names)} rooms (rotating)"
+        
         return {
-            "id": self.id, "action": self.action, "room_id": self.room_id,
-            "room_name": self.room_name, "params": self.params, "status": self.status,
-            "started_at": self.started_at, "stopped_at": self.stopped_at,
-            "elapsed_seconds": self.elapsed(), "gifts_sent": self.gifts_sent,
-            "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
+            "id": self.id, 
+            "action": self.action, 
+            "room_id": self.room_ids[0] if len(self.room_ids) == 1 else "multiple",
+            "room_name": room_display, 
+            "params": self.params, 
+            "status": self.status,
+            "started_at": self.started_at, 
+            "stopped_at": self.stopped_at,
+            "elapsed_seconds": self.elapsed(), 
+            "gifts_sent": self.gifts_sent,
+            "gift_target": self.gift_target, 
+            "park_ends_at": self.park_ends_at,
             "play_ends_at": self.play_ends_at,
         }
 
@@ -113,7 +122,7 @@ class MigXBot:
         self.sio = None
 
     def _log(self, nivel, texto):
-        entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": texto}
+        entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": str(texto)}
         with self.log_lock:
             self.logs.append(entrada)
             if len(self.logs) > 300:
@@ -159,7 +168,7 @@ class MigXBot:
         device_id = str(uuid.uuid4())
         auth = {"token": f"Bearer {self.token}", "clientVersion": "web", "platform": "web", "deviceId": device_id}
         
-        self._log("info", "Connecting to Socket.IO (using polling first)...")
+        self._log("info", "Connecting to Socket.IO...")
         try:
             self.sio.connect(SOCKET_URL, transports=["polling", "websocket"], auth=auth, wait_timeout=30)
             return True, None
@@ -183,7 +192,6 @@ class MigXBot:
 
         @self.sio.on("room:message")
         def on_rm(data): self._on_room_message(data)
-
         @self.sio.on("roomMessage")
         def on_rm2(data): self._on_room_message(data)
 
@@ -194,7 +202,6 @@ class MigXBot:
 
         @self.sio.on("game:state")
         def on_gs(data): self._on_game_state(data)
-
         @self.sio.on("gameState")
         def on_gs2(data): self._on_game_state(data)
 
@@ -215,46 +222,47 @@ class MigXBot:
                 pass
             time.sleep(HEARTBEAT_INTERVALO)
 
-    def create_task(self, action, room_id, params):
-        room = find_room(room_id)
-        if not room:
-            return None, f"Unknown room {room_id}"
-        if action not in room["actions"]:
-            return None, f"Action '{action}' not allowed in '{room['name']}'"
+    def create_task(self, action, room_ids, params):
+        if not room_ids: return None, "No rooms selected"
+        
+        room_names = []
+        for rid in room_ids:
+            room = find_room(rid)
+            if not room: return None, f"Unknown room {rid}"
+            if action not in room["actions"]: return None, f"Action '{action}' not allowed in '{room['name']}'"
+            room_names.append(room["name"])
 
-        try:
-            info = entrar_sala_http(self.token, room_id)
-            self.room_members = info.get("memberCount", "?")
-            self._log("ok", f"Joined '{room['name']}' ({self.room_members} members)")
-        except Exception as e:
-            self._log("err", f"Failed to join room: {e}")
-            return None, str(e)
+        # Nota: A entrada nas salas para o park será feita no loop de rotação.
+        # Para os outros, entramos na primeira.
+        if action != "park":
+            try:
+                info = entrar_sala_http(self.token, room_ids[0])
+                if info: self._log("ok", f"Joined '{room_names[0]}'")
+            except Exception as e:
+                return None, f"Failed to join room: {e}"
+            
+            self.sio.emit("room:join", {"roomId": room_ids[0]})
+            time.sleep(0.3)
 
-        self.sio.emit("room:join", {"roomId": room_id})
-        time.sleep(0.3)
-
-        task = Task(action, room_id, room["name"], params)
+        task = Task(action, room_ids, room_names, params)
         
         if action == "park" and params.get("park_duration_min", 0) > 0:
             task.park_ends_at = time.time() + params["park_duration_min"] * 60
-        
         if is_event_driven(action) and params.get("play_duration_min", 0) > 0:
             task.play_ends_at = time.time() + params["play_duration_min"] * 60
 
         with self.tasks_lock:
             self.tasks[task.id] = task
 
-        self._log("ok", f"Task {task.id} created: {action} in {room['name']}")
+        self._log("ok", f"Task {task.id} created: {action} in {len(room_ids)} room(s)")
         threading.Thread(target=self._run_task, args=(task,), daemon=True).start()
         return task, None
 
     def stop_task(self, task_id):
         with self.tasks_lock:
             task = self.tasks.get(task_id)
-            if not task:
-                return False, "Task not found"
-            if task.status != "running":
-                return False, "Task already finished"
+            if not task: return False, "Task not found"
+            if task.status != "running": return False, "Task already finished"
             task.stop_event.set()
             task.status = "stopped"
             task.stopped_at = time.time()
@@ -270,7 +278,7 @@ class MigXBot:
             elif is_event_driven(task.action):
                 while not task.stop_event.is_set():
                     if task.play_ends_at and time.time() >= task.play_ends_at:
-                        self._log("info", f"[{task.action}] {task.room_name}: duration reached")
+                        self._log("info", f"[{task.action}] duration reached")
                         break
                     task.stop_event.wait(1)
         except Exception as e:
@@ -283,35 +291,52 @@ class MigXBot:
 
     def _run_park(self, task):
         duration = task.params.get("park_duration_min", 0)
-        if duration > 0:
-            self._log("info", f"[park] {task.room_name}: parking for {duration} min")
-            while not task.stop_event.is_set():
-                if task.park_ends_at and time.time() >= task.park_ends_at:
-                    self._log("info", f"[park] {task.room_name}: duration reached")
-                    return
-                task.stop_event.wait(1)
-        else:
-            self._log("info", f"[park] {task.room_name}: parking indefinitely")
-            while not task.stop_event.is_set():
-                task.stop_event.wait(1)
+        rooms = task.room_ids
+        current_idx = 0
+        
+        self._log("info", f"[park] Starting rotation in {len(rooms)} rooms")
+        
+        while not task.stop_event.is_set():
+            if duration > 0 and task.park_ends_at and time.time() >= task.park_ends_at:
+                self._log("info", f"[park] Duration reached")
+                return
+            
+            rid = rooms[current_idx % len(rooms)]
+            room = find_room(rid)
+            room_name = room['name'] if room else rid
+            
+            try:
+                entrar_sala_http(self.token, rid)
+                self._log("ok", f"[park] Entered '{room_name}' (slot {current_idx+1}/{len(rooms)})")
+                self.room_id = rid
+                self.room_name = room_name
+            except Exception as e:
+                self._log("err", f"[park] Failed to enter '{room_name}': {e}")
+            
+            # Espera 30s para dar tempo ao heartbeat e parecer natural
+            for _ in range(30):
+                if task.stop_event.is_set(): return
+                time.sleep(1)
+            
+            current_idx += 1
 
     def _run_gift(self, task):
+        room_id = task.room_ids[0]
         user_gift_input = task.params.get("gift_key", "fly")
         gift_key = get_gift_key(user_gift_input)
         count = task.params.get("gift_count", 1)
         interval = task.params.get("gift_interval", 10)
         
-        self._log("info", f"[gift] {task.room_name}: sending {count}x '{gift_key}' every {interval}s")
+        self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
         
         for i in range(count):
-            if task.stop_event.is_set():
-                return
-            ok = enviar_mensagem_http(self.token, task.room_id, f"/gift all {gift_key}")
+            if task.stop_event.is_set(): return
+            ok = enviar_mensagem_http(self.token, room_id, f"/gift all {gift_key}")
             if ok:
                 task.gifts_sent = i + 1
-                self._log("ok", f"[gift] {task.room_name}: {i+1}/{count} sent")
+                self._log("ok", f"[gift] {task.room_names[0]}: {i+1}/{count} sent")
             else:
-                self._log("warn", f"[gift] {task.room_name}: rejected ({i+1}/{count})")
+                self._log("warn", f"[gift] {task.room_names[0]}: rejected ({i+1}/{count})")
             task.stop_event.wait(interval)
 
     def _on_room_message(self, data):
@@ -355,7 +380,7 @@ class MigXBot:
         if started_at != state["last_started"]:
             state["last_started"] = started_at
             state["bet"] = False
-            self._log("info", f"[royale] {task.room_name}: new round")
+            self._log("info", f"[royale] {task.room_names[0]}: new round")
         if phase == "bidding" and not state["bet"]:
             state["bet"] = True
             threading.Thread(target=self._royale_bet, args=(task,), daemon=True).start()
@@ -363,11 +388,12 @@ class MigXBot:
     def _royale_bet(self, task):
         time.sleep(random.uniform(3, 6))
         if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_id, "!bet red 100")
+        room_id = task.room_ids[0]
+        enviar_mensagem_http(self.token, room_id, "!bet red 100")
         task.gifts_sent += 1
         time.sleep(random.uniform(2, 4))
         if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_id, "!bet blue 100")
+        enviar_mensagem_http(self.token, room_id, "!bet blue 100")
         task.gifts_sent += 1
 
     def _handle_cricket(self, task, game):
@@ -380,7 +406,7 @@ class MigXBot:
         state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0, "action_cmd": "!d"})
         if game_id != state["game_id"]:
             state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit, "action_cmd": action_cmd})
-            self._log("info", f"[cricket] {task.room_name}: new game {game_id} join={join_credit}")
+            self._log("info", f"[cricket] {task.room_names[0]}: new game {game_id} join={join_credit}")
         if join_credit > 100: return
         meu = next((p for p in players if p.get("userId") == self.user_id), None)
         estou = meu is not None
@@ -396,16 +422,13 @@ class MigXBot:
     def _cricket_enter(self, task):
         time.sleep(random.uniform(1, 2))
         if task.stop_event.is_set(): return
-        # Aqui podes usar bet_min/bet_max se o jogo aceitar valores.
-        enviar_mensagem_http(self.token, task.room_id, "!j")
+        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
 
     def _cricket_play(self, task, cmd):
         time.sleep(random.uniform(3, 8))
         if task.stop_event.is_set(): return
-        if random.random() > 0.7:
-            self._log("info", f"[cricket] {task.room_name}: skipped")
-            return
-        enviar_mensagem_http(self.token, task.room_id, cmd or "!d")
+        if random.random() > 0.7: return
+        enviar_mensagem_http(self.token, task.room_ids[0], cmd or "!d")
         task.gifts_sent += 1
 
     def _handle_dice(self, task, game):
@@ -417,7 +440,7 @@ class MigXBot:
         state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "rolled": False, "join_credit": 0})
         if game_id != state["game_id"]:
             state.update({"game_id": game_id, "entered": False, "rolled": False, "join_credit": join_credit})
-            self._log("info", f"[dice] {task.room_name}: new game {game_id} join={join_credit}")
+            self._log("info", f"[dice] {task.room_names[0]}: new game {game_id} join={join_credit}")
         if join_credit > 100: return
         meu = next((p for p in players if p.get("userId") == self.user_id), None)
         estou = meu is not None
@@ -432,15 +455,13 @@ class MigXBot:
     def _dice_enter(self, task):
         time.sleep(random.uniform(1, 2))
         if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_id, "!j")
+        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
 
     def _dice_roll(self, task):
         time.sleep(random.uniform(3, 8))
         if task.stop_event.is_set(): return
-        if random.random() > 0.7:
-            self._log("info", f"[dice] {task.room_name}: skipped")
-            return
-        enviar_mensagem_http(self.token, task.room_id, "!r")
+        if random.random() > 0.7: return
+        enviar_mensagem_http(self.token, task.room_ids[0], "!r")
         task.gifts_sent += 1
 
     def _handle_lowcard(self, task, game):
@@ -452,7 +473,7 @@ class MigXBot:
         state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0})
         if game_id != state["game_id"]:
             state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit})
-            self._log("info", f"[lowcard] {task.room_name}: new game {game_id} join={join_credit}")
+            self._log("info", f"[lowcard] {task.room_names[0]}: new game {game_id} join={join_credit}")
         if join_credit > 100: return
         meu = next((p for p in players if p.get("userId") == self.user_id), None)
         estou = meu is not None
@@ -470,15 +491,13 @@ class MigXBot:
     def _lowcard_enter(self, task):
         time.sleep(random.uniform(1, 2))
         if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_id, "!j")
+        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
 
     def _lowcard_play(self, task):
         time.sleep(random.uniform(3, 8))
         if task.stop_event.is_set(): return
-        if random.random() > 0.7:
-            self._log("info", f"[lowcard] {task.room_name}: skipped")
-            return
-        enviar_mensagem_http(self.token, task.room_id, "!d")
+        if random.random() > 0.7: return
+        enviar_mensagem_http(self.token, task.room_ids[0], "!d")
         task.gifts_sent += 1
 
     def stop(self):

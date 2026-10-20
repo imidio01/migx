@@ -72,6 +72,7 @@ class Task:
         self.gifts_sent = 0
         self.gift_target = params.get("gift_count", 0) if action == "gift" else 0
         self.park_ends_at = None
+        self.play_ends_at = None
         self.stop_event = threading.Event()
 
     def elapsed(self):
@@ -85,6 +86,7 @@ class Task:
             "started_at": self.started_at, "stopped_at": self.stopped_at,
             "elapsed_seconds": self.elapsed(), "gifts_sent": self.gifts_sent,
             "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
+            "play_ends_at": self.play_ends_at,
         }
 
 class MigXBot:
@@ -232,8 +234,12 @@ class MigXBot:
         time.sleep(0.3)
 
         task = Task(action, room_id, room["name"], params)
+        
         if action == "park" and params.get("park_duration_min", 0) > 0:
             task.park_ends_at = time.time() + params["park_duration_min"] * 60
+        
+        if is_event_driven(action) and params.get("play_duration_min", 0) > 0:
+            task.play_ends_at = time.time() + params["play_duration_min"] * 60
 
         with self.tasks_lock:
             self.tasks[task.id] = task
@@ -263,6 +269,9 @@ class MigXBot:
                 self._run_gift(task)
             elif is_event_driven(task.action):
                 while not task.stop_event.is_set():
+                    if task.play_ends_at and time.time() >= task.play_ends_at:
+                        self._log("info", f"[{task.action}] {task.room_name}: duration reached")
+                        break
                     task.stop_event.wait(1)
         except Exception as e:
             self._log("err", f"Task {task.id} crashed: {e}")
@@ -387,6 +396,7 @@ class MigXBot:
     def _cricket_enter(self, task):
         time.sleep(random.uniform(1, 2))
         if task.stop_event.is_set(): return
+        # Aqui podes usar bet_min/bet_max se o jogo aceitar valores.
         enviar_mensagem_http(self.token, task.room_id, "!j")
 
     def _cricket_play(self, task, cmd):

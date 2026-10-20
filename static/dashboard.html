@@ -40,7 +40,7 @@
         .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.8rem; }
         .field { display: flex; flex-direction: column; gap: 0.3rem; }
         .field label { font-size: 0.8rem; color: #a6adc8; font-weight: 600; }
-        .field select, .field input { padding: 0.7rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; min-width: 160px; }
+        .field select, .field input { padding: 0.7rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; min-width: 140px; }
         .field select:focus, .field input:focus { outline: none; border-color: #89b4fa; }
 
         .room-picker { position: relative; min-width: 240px; }
@@ -51,8 +51,6 @@
         .room-list .room-item:hover { background: #45475a; }
         .room-list .room-item.selected { color: #89b4fa; font-weight: 600; }
 
-        .hint { font-size: 0.8rem; color: #f9e2af; margin-top: 0.6rem; display: none; }
-        .hint.visible { display: block; }
         .apply-msg { font-size: 0.85rem; margin-top: 0.6rem; min-height: 1.2rem; }
         .apply-msg.ok { color: #a6e3a1; }
         .apply-msg.err { color: #f38ba8; }
@@ -138,21 +136,33 @@
                     </div>
                 </div>
 
-                <div class="action-row" id="gift-options" style="display:none;">
-                    <div class="field">
-                        <label>Gift name</label>
-                        <input type="text" id="gift-key" list="gift-list" value="fly" placeholder="Type or pick a gift..." style="min-width:180px;">
-                        <datalist id="gift-list"></datalist>
+                <!-- CAMPOS DINÂMICOS -->
+                <div id="dynamic-fields">
+                    <!-- GIFT -->
+                    <div class="action-row" id="gift-options" style="display:none;">
+                        <div class="field">
+                            <label>Gift name</label>
+                            <input type="text" id="gift-key" list="gift-list" value="fly" placeholder="Type or pick a gift...">
+                            <datalist id="gift-list"></datalist>
+                        </div>
+                        <div class="field"><label>How many</label><input type="number" id="gift-count" value="10" min="1" step="1"></div>
+                        <div class="field"><label>Interval (s)</label><input type="number" id="gift-interval" value="10" min="1" step="1"></div>
                     </div>
-                    <div class="field"><label>How many</label><input type="number" id="gift-count" value="10" min="1" step="1" style="min-width:100px"></div>
-                    <div class="field"><label>Interval (s)</label><input type="number" id="gift-interval" value="10" min="1" step="1" style="min-width:100px"></div>
+
+                    <!-- PARK -->
+                    <div class="action-row" id="park-options" style="display:none;">
+                        <div class="field"><label>Duration (minutes, 0 = infinite)</label><input type="number" id="park-duration" value="0" min="0" step="1"></div>
+                    </div>
+
+                    <!-- JOGOS (Royale, Cricket, Dice, Lowcard) -->
+                    <div class="action-row" id="game-options" style="display:none;">
+                        <div class="field"><label>Min Bet</label><input type="number" id="bet-min" value="10" min="1" step="1"></div>
+                        <div class="field"><label>Max Bet</label><input type="number" id="bet-max" value="100" min="1" step="1"></div>
+                        <div class="field"><label>Num. Bets</label><input type="number" id="bet-count" value="2" min="1" step="1"></div>
+                        <div class="field"><label>Play Duration (minutes, 0 = infinite)</label><input type="number" id="play-duration" value="0" min="0" step="1"></div>
+                    </div>
                 </div>
 
-                <div class="action-row" id="park-options">
-                    <div class="field"><label>Duration (minutes, 0 = infinite)</label><input type="number" id="park-duration" value="0" min="0" step="1" style="min-width:120px"></div>
-                </div>
-
-                <div class="hint" id="hint">This action is event-driven; interval is not used.</div>
                 <div class="apply-msg" id="apply-msg"></div>
                 <button class="btn-primary" id="apply" style="margin-top:0.8rem;">Create task</button>
             </div>
@@ -256,12 +266,11 @@
             });
         };
 
-        const isEventDriven = a => ['royale','cricket','dice','lowcard'].includes(a);
         const updateActionFields = () => {
             const action = document.getElementById('action-select').value;
             document.getElementById('gift-options').style.display = (action === 'gift') ? 'flex' : 'none';
             document.getElementById('park-options').style.display = (action === 'park') ? 'flex' : 'none';
-            document.getElementById('hint').classList.toggle('visible', isEventDriven(action));
+            document.getElementById('game-options').style.display = (['royale', 'cricket', 'dice', 'lowcard'].includes(action)) ? 'flex' : 'none';
         };
 
         const loadRooms = async () => {
@@ -301,14 +310,21 @@
             }
             empty.style.display = 'none';
             tbody.innerHTML = tasks.map(t => {
-                const params = t.action === 'gift'
-                    ? `${t.params.gift_count}x ${t.params.gift_key} @ ${t.params.gift_interval}s`
-                    : t.action === 'park'
-                        ? (t.params.park_duration_min ? `${t.params.park_duration_min} min` : 'infinite')
-                        : 'event-driven';
-                const progress = t.action === 'gift' ? `${t.gifts_sent}/${t.gift_target}`
-                    : t.action === 'park' ? (t.park_ends_at ? fmtUptime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left' : '∞')
-                    : `${t.gifts_sent} actions`;
+                let params = '';
+                if (t.action === 'gift') {
+                    params = `${t.params.gift_count}x ${t.params.gift_key} @ ${t.params.gift_interval}s`;
+                } else if (t.action === 'park') {
+                    params = t.params.park_duration_min ? `${t.params.park_duration_min} min` : 'infinite';
+                } else {
+                    params = `Bet ${t.params.bet_min}-${t.params.bet_max}, ${t.params.bet_count} bets`;
+                    if (t.params.play_duration_min) params += `, ${t.params.play_duration_min} min`;
+                }
+                
+                let progress = `${t.gifts_sent} actions`;
+                if (t.action === 'gift') progress = `${t.gifts_sent}/${t.gift_target}`;
+                if (t.action === 'park') progress = t.park_ends_at ? fmtUptime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left' : '∞';
+                if (t.play_ends_at) progress = fmtUptime(Math.max(0, Math.floor(t.play_ends_at - Date.now()/1000))) + ' left';
+                
                 const badge = t.status === 'running' ? 'badge-running' : t.status === 'stopped' ? 'badge-stopped' : 'badge-finished';
                 const stopBtn = t.status === 'running'
                     ? `<button class="btn-danger" data-stop="${t.id}">Stop</button>`
@@ -460,12 +476,18 @@
             }
 
             const body = { action, room_id: SELECTED_ROOM_ID };
+            
             if (action === 'gift') {
                 body.gift_key = document.getElementById('gift-key').value.trim() || 'fly';
                 body.gift_count = parseInt(document.getElementById('gift-count').value) || 1;
                 body.gift_interval = parseFloat(document.getElementById('gift-interval').value) || 10;
             } else if (action === 'park') {
                 body.park_duration_min = parseInt(document.getElementById('park-duration').value) || 0;
+            } else {
+                body.bet_min = parseInt(document.getElementById('bet-min').value) || 10;
+                body.bet_max = parseInt(document.getElementById('bet-max').value) || 100;
+                body.bet_count = parseInt(document.getElementById('bet-count').value) || 2;
+                body.play_duration_min = parseInt(document.getElementById('play-duration').value) || 0;
             }
 
             btn.disabled = true;

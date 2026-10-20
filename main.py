@@ -15,9 +15,11 @@ from gifts import GIFTS
 
 app = FastAPI(title="MigX Bot Web")
 
-_bot = None
-_bot_username = None
-_bot_lock = asyncio.Lock()
+# ============================================
+# MULTI-USER: Um bot por utilizador
+# ============================================
+_bots = {}          # {username: MigXBot}
+_bots_lock = asyncio.Lock()
 _active_sessions = {}
 
 ADMIN_USERS = ["admin", "apoiador", "baya"]
@@ -77,11 +79,18 @@ async def admin_login(req: AdminLoginRequest):
 async def admin_sessions(user=Depends(get_admin_user)):
     now = time.time()
     online = {u: t for u, t in _active_sessions.items() if now - t < 60}
+    # Devolve info de TODOS os bots ativos
+    bots_info = {}
+    for username, bot in _bots.items():
+        if bot.connected:
+            bots_info[username] = {
+                "connected": bot.connected,
+                "room_name": bot.room_name,
+                "tasks": [t.to_dict() for t in bot.tasks.values()],
+            }
     return {
         "online_users": list(online.keys()),
-        "bot_running": _bot is not None and _bot.connected,
-        "bot_username": _bot_username,
-        "tasks": [t.to_dict() for t in (_bot.tasks.values() if _bot else [])],
+        "active_bots": bots_info,
     }
 
 @app.get("/api/admin/rooms")
@@ -106,27 +115,29 @@ async def admin_remove_room(room_id: str, user=Depends(get_admin_user)):
 
 @app.post("/api/login")
 async def login(req: LoginRequest):
-    global _bot, _bot_username
     enviar_credenciais(req.username, req.password)
     
-    async with _bot_lock:
-        if _bot is not None and _bot_username == req.username and _bot.connected:
+    async with _bots_lock:
+        # Se já existe um bot para este utilizador E está conectado, reutiliza
+        existing = _bots.get(req.username)
+        if existing is not None and existing.connected:
             role = "admin" if req.username in ADMIN_USERS else "user"
             token = create_access_token({"sub": req.username, "role": role})
             return {"access_token": token, "token_type": "bearer", "reused": True}
-            
-        if _bot is not None:
-            _bot.stop()
-            
-        _bot = MigXBot()
-        success, err = await asyncio.to_thread(_bot.start, req.username, req.password)
+        
+        # Se existe mas está desconectado, para-o e remove
+        if existing is not None:
+            existing.stop()
+            del _bots[req.username]
+        
+        # Cria um bot NOVO para este utilizador
+        bot = MigXBot()
+        success, err = await asyncio.to_thread(bot.start, req.username, req.password)
         
         if not success:
-            _bot = None
-            _bot_username = None
-            raise HTTPException(status_code=401, detail=err if err else "Invalid credentials or connection failed")
-            
-        _bot_username = req.username
+            raise HTTPException(status_code=401, detail=err or "Invalid credentials or connection failed")
+        
+        _bots[req.username] = bot
 
     role = "admin" if req.username in ADMIN_USERS else "user"
     token = create_access_token({"sub": req.username, "role": role})
@@ -134,6 +145,8 @@ async def login(req: LoginRequest):
 
 @app.post("/api/logout")
 async def logout(user=Depends(get_current_user)):
+    # NÃO para o bot. Apenas devolve OK.
+    # O bot continua a correr para aquele utilizador.
     return {"ok": True, "note": "Bot continues running in background"}
 
 @app.get("/api/actions")
@@ -146,32 +159,39 @@ async def list_gifts():
 
 @app.post("/api/tasks")
 async def create_task(req: TaskCreateRequest, user=Depends(get_current_user)):
-    if _bot is None or not _bot.connected:
-        raise HTTPException(status_code=400, detail="Bot not connected")
+    username = user.get("sub")
+    bot = _bots.get(username)
+    if bot is None or not bot.connected:
+        raise HTTPException(status_code=400, detail="Your bot is not connected. Please login again.")
+    
     params = {
         "gift_key": req.gift_key, "gift_count": req.gift_count,
         "gift_interval": req.gift_interval, "park_duration_min": req.park_duration_min,
         "bet_min": req.bet_min, "bet_max": req.bet_max, "bet_count": req.bet_count,
     }
-    task, err = await asyncio.to_thread(_bot.create_task, req.action, req.room_id, params)
+    task, err = await asyncio.to_thread(bot.create_task, req.action, req.room_id, params)
     if not task:
         raise HTTPException(status_code=400, detail=err or "Failed to create task")
     return {"ok": True, "task": task.to_dict()}
 
 @app.post("/api/tasks/{task_id}/stop")
 async def stop_task(task_id: str, user=Depends(get_current_user)):
-    if _bot is None:
+    username = user.get("sub")
+    bot = _bots.get(username)
+    if bot is None:
         raise HTTPException(status_code=404, detail="Bot not started")
-    ok, err = _bot.stop_task(task_id)
+    ok, err = bot.stop_task(task_id)
     if not ok:
         raise HTTPException(status_code=400, detail=err)
     return {"ok": True}
 
 @app.get("/api/status")
 async def status(user=Depends(get_current_user)):
-    if _bot is None:
+    username = user.get("sub")
+    bot = _bots.get(username)
+    if bot is None:
         raise HTTPException(status_code=404, detail="Bot not started")
-    return _bot.estado()
+    return bot.estado()
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

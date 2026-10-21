@@ -30,7 +30,7 @@
         <p class="sub">Sign in to manage your bot</p>
         <form id="loginForm">
             <label for="username">Username</label>
-            <input type="text" id="username" required autocomplete="username" placeholder="username">
+            <input type="text" id="username" required autocomplete="username" placeholder="apoiador">
             <label for="password">Password</label>
             <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
             <button type="submit" id="btn">Sign In</button>
@@ -38,6 +38,28 @@
         <div class="msg" id="msg"></div>
     </div>
     <script>
+        const existingToken = localStorage.getItem('token');
+        if (existingToken) {
+            try {
+                const payload = JSON.parse(atob(existingToken.split('.')[1]));
+                if (payload.exp * 1000 > Date.now()) {
+                    fetch('/api/status', { headers: { 'Authorization': `Bearer ${existingToken}` } })
+                        .then(res => {
+                            if (res.ok) {
+                                window.location.href = '/dashboard';
+                            } else {
+                                localStorage.removeItem('token');
+                            }
+                        })
+                        .catch(() => localStorage.removeItem('token'));
+                } else {
+                    localStorage.removeItem('token');
+                }
+            } catch (e) {
+                localStorage.removeItem('token');
+            }
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn');
@@ -57,15 +79,10 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    sessionStorage.setItem('token', data.access_token);
-                    const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+                    localStorage.setItem('token', data.access_token);
                     msg.textContent = 'Login OK! Redirecting...';
                     msg.className = 'msg ok';
-                    if (payload.role === 'admin') {
-                        window.location.href = '/dashboard';
-                    } else {
-                        window.location.href = '/dashboard';
-                    }
+                    window.location.href = '/dashboard';
                 } else {
                     msg.textContent = data.detail || 'Login failed';
                     msg.className = 'msg err';

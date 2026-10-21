@@ -12,7 +12,7 @@ from gifts import get_gift_key
 
 API_BASE = "https://api.migxapp.com"
 SOCKET_URL = "https://api.migxapp.com"
-HEARTBEAT_INTERVALO = 10  # Mais agressivo: 10s
+HEARTBEAT_INTERVALO = 10
 
 def fazer_login(username, password):
     url = f"{API_BASE}/trpc/auth.login?batch=1"
@@ -114,7 +114,7 @@ class MigXBot:
         self.log_lock = threading.Lock()
         self.started_at = None
         self.sio = None
-        self.current_room_to_rejoin = None  # <-- Para reconectar à sala
+        self.current_room_to_rejoin = None
 
     def _log(self, nivel, texto):
         entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": str(texto)}
@@ -179,7 +179,6 @@ class MigXBot:
             self.heartbeat_ativo = True
             threading.Thread(target=self._loop_heartbeat, daemon=True).start()
             
-            # Se é reconexão, volta a entrar na sala
             if self.current_room_to_rejoin:
                 self._log("warn", f"Reconnected. Re-joining room {self.current_room_to_rejoin}")
                 try:
@@ -223,7 +222,6 @@ class MigXBot:
                 if self.sio and self.sio.connected:
                     self.sio.emit("user:heartbeat")
                     self.heartbeats_enviados += 1
-                    # Re-envia join para garantir presença na sala
                     if self.current_room_to_rejoin:
                         self.sio.emit("room:join", {"roomId": self.current_room_to_rejoin})
             except Exception as e:
@@ -237,8 +235,10 @@ class MigXBot:
         room_names = []
         for rid in room_ids:
             room = find_room(rid)
-            if not room: return None, f"Unknown room {rid}"
-            if action not in room["actions"]: return None, f"Action '{action}' not allowed in '{room['name']}'"
+            if not room:
+                return None, f"Unknown room {rid}. Ask admin to add it."
+            if action not in room["actions"]:
+                return None, f"Action '{action}' not allowed in '{room['name']}'"
             room_names.append(room["name"])
 
         if action != "park":
@@ -251,7 +251,6 @@ class MigXBot:
             self.sio.emit("room:join", {"roomId": room_ids[0]})
             time.sleep(0.3)
 
-        # Guarda a sala para reconexão automática
         self.current_room_to_rejoin = room_ids[0] if room_ids else None
 
         task = Task(action, room_ids, room_names, params)
@@ -313,7 +312,7 @@ class MigXBot:
             
             rid = rooms[current_idx % len(rooms)]
             room = find_room(rid)
-            room_name = room['name'] if room else rid
+            room_name = room['name'] if room else f"Room {rid[:6]}..."
             
             try:
                 entrar_sala_http(self.token, rid)
@@ -325,7 +324,6 @@ class MigXBot:
             except Exception as e:
                 self._log("err", f"[park] Failed to enter '{room_name}': {e}")
             
-            # Espera 30s para o heartbeat fazer efeito
             for _ in range(30):
                 if task.stop_event.is_set(): return
                 time.sleep(1)
@@ -337,7 +335,7 @@ class MigXBot:
         user_gift_input = task.params.get("gift_key", "fly")
         gift_key = get_gift_key(user_gift_input)
         count = task.params.get("gift_count", 1)
-        interval = task.params.get("gift_interval", 10)
+        interval = task.params.get("gift_interval", 1)
         
         self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
         

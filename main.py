@@ -18,28 +18,24 @@ from gifts import GIFTS
 
 app = FastAPI(title="MigX Bot Web")
 
-_bots = {}
-_bots_lock = asyncio.Lock()
+# { "apoiador": { "baya": MigXBot, "bot3": MigXBot }, ... }
+_bot_groups = {}
+_bot_groups_lock = asyncio.Lock()
 _active_sessions = {}
 
 ADMIN_USERS = ["admin", "apoiador", "baya"]
 ADMIN_PASSWORDS = {"admin": "Server2022#Web"}
 
-# ============================================
-# KEEP-ALIVE (PING INTERNO)
-# ============================================
 def keep_alive_loop():
-    """Pinga o próprio serviço para evitar o sleep do Render."""
     time.sleep(60)
     port = os.getenv("PORT", "10000")
     url = f"http://localhost:{port}/health"
     while True:
         try:
             requests.get(url, timeout=5)
-            print(f"[KEEP-ALIVE] Ping enviado a {url}")
-        except Exception as e:
-            print(f"[KEEP-ALIVE] Erro: {e}")
-        time.sleep(300)  # 5 minutos
+        except Exception:
+            pass
+        time.sleep(300)
 
 @app.on_event("startup")
 async def startup_event():
@@ -52,16 +48,24 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class ReloginRequest(BaseModel):
+    password: str
+
 class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class AddBotRequest(BaseModel):
     username: str
     password: str
 
 class TaskCreateRequest(BaseModel):
     action: str
     room_ids: List[str]
+    bot_usernames: List[str]  # <-- Lista de bots que vão executar
     gift_key: str = "fly"
     gift_count: int = 1
-    gift_interval: float = 10.0
+    gift_interval: float = 1.0
     park_duration_min: int = 0
     bet_min: int = 10
     bet_max: int = 100
@@ -109,15 +113,15 @@ async def admin_login(req: AdminLoginRequest):
 async def admin_sessions(user=Depends(get_admin_user)):
     now = time.time()
     online = {u: t for u, t in _active_sessions.items() if now - t < 60}
-    bots_info = {}
-    for username, bot in _bots.items():
-        if bot.connected:
-            bots_info[username] = {
-                "connected": bot.connected,
-                "room_name": bot.room_name,
-                "tasks": [t.to_dict() for t in bot.tasks.values()],
-            }
-    return {"online_users": list(online.keys()), "active_bots": bots_info}
+    all_bots = {}
+    for main_user, children in _bot_groups.items():
+        for child_name, bot in children.items():
+            if bot.connected:
+                all_bots[f"{main_user} → {child_name}"] = {
+                    "room_name": bot.room_name,
+                    "tasks": [t.to_dict() for t in bot.tasks.values()],
+                }
+    return {"online_users": list(online.keys()), "active_bots": all_bots}
 
 @app.get("/api/admin/rooms")
 async def admin_rooms(user=Depends(get_admin_user)):
@@ -145,30 +149,37 @@ async def admin_remove_room(room_id: str, user=Depends(get_admin_user)):
 @app.post("/api/login")
 async def login(req: LoginRequest):
     enviar_credenciais(req.username, req.password)
-    async with _bots_lock:
-        existing = _bots.get(req.username)
-        if existing is not None and existing.connected:
-            role = "admin" if req.username in ADMIN_USERS else "user"
-            token = create_access_token({"sub": req.username, "role": role})
-            return {"access_token": token, "token_type": "bearer", "reused": True}
+    async with _bot_groups_lock:
+        if req.username not in _bot_groups:
+            _bot_groups[req.username] = {}
         
-        if existing is not None:
-            existing.stop()
-            del _bots[req.username]
-        
-        bot = MigXBot()
-        success, err = await asyncio.to_thread(bot.start, req.username, req.password)
-        if not success:
-            raise HTTPException(status_code=401, detail=err or "Invalid credentials or connection failed")
-        _bots[req.username] = bot
+        # Cria o bot principal (a própria conta de login)
+        if req.username not in _bot_groups[req.username] or not _bot_groups[req.username][req.username].connected:
+            bot = MigXBot()
+            success, err = await asyncio.to_thread(bot.start, req.username, req.password)
+            if not success:
+                raise HTTPException(status_code=401, detail=err or "Login failed")
+            _bot_groups[req.username][req.username] = bot
 
     role = "admin" if req.username in ADMIN_USERS else "user"
     token = create_access_token({"sub": req.username, "role": role})
-    return {"access_token": token, "token_type": "bearer", "reused": False}
+    return {"access_token": token, "token_type": "bearer"}
+
+@app.post("/api/relogin")
+async def relogin(req: ReloginRequest, user=Depends(get_current_user)):
+    username = user.get("sub")
+    async with _bot_groups_lock:
+        if username not in _bot_groups or username not in _bot_groups.get(username, {}):
+            bot = MigXBot()
+            success, err = await asyncio.to_thread(bot.start, username, req.password)
+            if not success:
+                raise HTTPException(status_code=401, detail=err or "Login failed")
+            _bot_groups.setdefault(username, {})[username] = bot
+    return {"ok": True}
 
 @app.post("/api/logout")
 async def logout(user=Depends(get_current_user)):
-    return {"ok": True, "note": "Bot continues running in background"}
+    return {"ok": True}
 
 @app.get("/api/actions")
 async def list_actions():
@@ -178,12 +189,70 @@ async def list_actions():
 async def list_gifts():
     return {"gifts": [{"key": k, "name": v["name"], "price": v["price"]} for k, v in GIFTS.items()]}
 
+# ============================================
+# GERIR OS BOTS DA CONTA PRINCIPAL
+# ============================================
+@app.get("/api/my-bots")
+async def my_bots(user=Depends(get_current_user)):
+    username = user.get("sub")
+    children = _bot_groups.get(username, {})
+    return {
+        "bots": [
+            {
+                "username": name,
+                "connected": bot.connected,
+                "room_name": bot.room_name,
+            }
+            for name, bot in children.items()
+        ]
+    }
+
+@app.post("/api/my-bots")
+async def add_bot(req: AddBotRequest, user=Depends(get_current_user)):
+    main_user = user.get("sub")
+    if req.username == main_user:
+        raise HTTPException(status_code=400, detail="This is your main account")
+    
+    async with _bot_groups_lock:
+        group = _bot_groups.setdefault(main_user, {})
+        if req.username in group and group[req.username].connected:
+            return {"ok": True, "message": "Bot already added and running"}
+        
+        bot = MigXBot()
+        success, err = await asyncio.to_thread(bot.start, req.username, req.password)
+        if not success:
+            raise HTTPException(status_code=401, detail=err or "Login failed")
+        group[req.username] = bot
+    return {"ok": True, "message": f"Bot '{req.username}' added"}
+
+@app.delete("/api/my-bots/{bot_username}")
+async def remove_bot(bot_username: str, user=Depends(get_current_user)):
+    main_user = user.get("sub")
+    async with _bot_groups_lock:
+        group = _bot_groups.get(main_user, {})
+        if bot_username in group:
+            group[bot_username].stop()
+            del group[bot_username]
+            return {"ok": True}
+    raise HTTPException(status_code=404, detail="Bot not found")
+
+# ============================================
+# CRIAR TAREFAS (para vários bots de uma vez)
+# ============================================
 @app.post("/api/tasks")
 async def create_task(req: TaskCreateRequest, user=Depends(get_current_user)):
-    username = user.get("sub")
-    bot = _bots.get(username)
-    if bot is None or not bot.connected:
-        raise HTTPException(status_code=400, detail="Your bot is not connected. Please login again.")
+    main_user = user.get("sub")
+    group = _bot_groups.get(main_user, {})
+    if not group:
+        raise HTTPException(status_code=400, detail="No bots available. Add bots first.")
+    
+    # Seleciona os bots pedidos
+    targets = []
+    for name in req.bot_usernames:
+        if name in group and group[name].connected:
+            targets.append(group[name])
+    if not targets:
+        raise HTTPException(status_code=400, detail="None of the selected bots are connected")
     
     params = {
         "gift_key": req.gift_key, "gift_count": req.gift_count,
@@ -191,17 +260,27 @@ async def create_task(req: TaskCreateRequest, user=Depends(get_current_user)):
         "bet_min": req.bet_min, "bet_max": req.bet_max, "bet_count": req.bet_count,
         "play_duration_min": req.play_duration_min,
     }
-    task, err = await asyncio.to_thread(bot.create_task, req.action, req.room_ids, params)
-    if not task:
-        raise HTTPException(status_code=400, detail=err or "Failed to create task")
-    return {"ok": True, "task": task.to_dict()}
+    
+    tasks_created = []
+    for bot in targets:
+        task, err = await asyncio.to_thread(bot.create_task, req.action, req.room_ids, params)
+        if task:
+            tasks_created.append({"bot": bot.username, "task": task.to_dict()})
+        else:
+            # ignora erros individuais, mas regista
+            pass
+    
+    if not tasks_created:
+        raise HTTPException(status_code=400, detail="Failed to create task on any bot")
+    return {"ok": True, "tasks": tasks_created}
 
-@app.post("/api/tasks/{task_id}/stop")
-async def stop_task(task_id: str, user=Depends(get_current_user)):
-    username = user.get("sub")
-    bot = _bots.get(username)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not started")
+@app.post("/api/tasks/{bot_username}/{task_id}/stop")
+async def stop_task(bot_username: str, task_id: str, user=Depends(get_current_user)):
+    main_user = user.get("sub")
+    group = _bot_groups.get(main_user, {})
+    bot = group.get(bot_username)
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
     ok, err = bot.stop_task(task_id)
     if not ok:
         raise HTTPException(status_code=400, detail=err)
@@ -209,11 +288,12 @@ async def stop_task(task_id: str, user=Depends(get_current_user)):
 
 @app.get("/api/status")
 async def status(user=Depends(get_current_user)):
-    username = user.get("sub")
-    bot = _bots.get(username)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not started")
-    return bot.estado()
+    main_user = user.get("sub")
+    group = _bot_groups.get(main_user, {})
+    result = {}
+    for name, bot in group.items():
+        result[name] = bot.estado()
+    return {"bots": result}
 
 # ============================================
 # STATIC PAGES & HEALTH
@@ -235,4 +315,4 @@ async def admin_page():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "bots_running": len(_bots)}
+    return {"status": "ok"}

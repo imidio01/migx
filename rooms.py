@@ -16,8 +16,10 @@ ROOMS = [
     {"id": "6a6562cf38aaa64fd0450807", "name": "Dark World", "actions": ["park", "gift"]},
     {"id": "6a5723f296fc0ea2f727360b", "name": "Nepal", "actions": ["park", "gift"]},
     
-    {"id": "6a6562cf38aaa64fd0450807", "name": "India", "actions": ["park", "gift"]},
-    {"id": "6a6562cf38aaa64fd0450807", "name": "Indonesia", "actions": ["park", "gift"]},
+    {"id": "6a5724ca96fc0ea2f7273d49", "name": "India", "actions": ["park", "gift"]},
+    {"id": "6a5725f996fc0ea2f7274583", "name": "Indonesia", "actions": ["park", "gift"]},
+    {"id": "6a6b23dbfcb779dc7dd2b5e4", "name": "Migx India", "actions": ["park", "gift"]},
+    {"id": "6a75a6eab24bf3ee88260e87", "name": "Migx Juction", "actions": ["park", "gift"]},
     
     # Lowcard Rooms
     {"id": "6a57239e96fc0ea2f7273311", "name": "Lowcard 1", "actions": ["lowcard"]},

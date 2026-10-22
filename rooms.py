@@ -20,6 +20,9 @@ ROOMS = [
     {"id": "6a5725f996fc0ea2f7274583", "name": "Indonesia", "actions": ["park", "gift"]},
     {"id": "6a6b23dbfcb779dc7dd2b5e4", "name": "Migx India", "actions": ["park", "gift"]},
     {"id": "6a75a6eab24bf3ee88260e87", "name": "Migx Juction", "actions": ["park", "gift"]},
+    {"id": "6a591f117a8c807a7c1cb8fc", "name": "Maldives", "actions": ["park", "gift"]},
+    {"id": "6a5725c496fc0ea2f7274320", "name": "Bangladesh", "actions": ["park", "gift"]},
+    {"id": "6a57236196fc0ea2f7273026", "name": "MigxCareline", "actions": ["park", "gift"]},
     
     # Lowcard Rooms
     {"id": "6a57239e96fc0ea2f7273311", "name": "Lowcard 1", "actions": ["lowcard"]},

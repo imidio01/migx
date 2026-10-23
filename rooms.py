@@ -12,6 +12,7 @@ ROOMS = [
     {"id": "6a591f117a8c807a7c1cb8fc", "name": "Maldives", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6a5725c496fc0ea2f7274320", "name": "Bangladesh", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6a57236196fc0ea2f7273026", "name": "MigxCareline", "actions": ["park", "gift"], "category": "chat"},
+    {"id": "6ac47e17c5b4fdaa2078b5b1", "name": "Migx Daily Contest", "actions": ["park", "gift"], "category": "chat"},
 
     # ===== GAMES: ROYALE =====
     {"id": "6a5c48110cf9038123569837", "name": "Royale Battle", "actions": ["royale"], "category": "game"},

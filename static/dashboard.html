@@ -731,6 +731,16 @@
             <input type="text" id="gift-filter" class="form-control" placeholder="Search gifts..."
                 style="margin-bottom:0.8rem;">
             <div class="room-list" id="gift-list-modal"></div>
+            <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--glass-border);">
+                <label style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.4rem; display:block;">Or type
+                    a custom gift key</label>
+                <div style="display:flex; gap:0.5rem;">
+                    <input type="text" id="gift-custom-input" class="form-control" placeholder="e.g. super_car"
+                        style="flex:1;">
+                    <button class="btn-primary" id="btn-use-custom-gift"
+                        style="width:auto; padding:0.7rem 1rem; font-size:0.85rem;">Use</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -773,6 +783,15 @@
                 });
             });
         };
+
+        document.getElementById('btn-use-custom-gift').addEventListener('click', () => {
+            const val = document.getElementById('gift-custom-input').value.trim();
+            if (!val) return;
+            SELECTED_GIFT = { key: val, name: val };
+            document.getElementById('selected-gift-name').textContent = val;
+            document.getElementById('selected-gift-name').style.color = 'var(--text-main)';
+            closeGiftModal();
+        });
 
         document.getElementById('gift-trigger').addEventListener('click', openGiftModal);
         document.getElementById('gift-filter').addEventListener('input', e => renderGiftModal(e.target.value));
@@ -1014,7 +1033,7 @@
         document.getElementById('logout').addEventListener('click', () => { localStorage.removeItem('token'); window.location.href = '/'; });
 
         loadData('park');
-        loadGifts(); 
+        loadGifts();
         refreshBots();
         refresh();
         setInterval(refresh, 3000);

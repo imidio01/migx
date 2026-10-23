@@ -12,7 +12,7 @@ from gifts import get_gift_key
 
 API_BASE = "https://api.migxapp.com"
 SOCKET_URL = "https://api.migxapp.com"
-HEARTBEAT_INTERVALO = 15  # aumentado de 10 para 15
+HEARTBEAT_INTERVALO = 30
 
 def fazer_login(username, password):
     url = f"{API_BASE}/trpc/auth.login?batch=1"
@@ -180,8 +180,6 @@ class MigXBot:
             self._log("ok", "Connected to MigX Socket.IO")
             self.heartbeat_ativo = True
             threading.Thread(target=self._loop_heartbeat, daemon=True).start()
-            
-            # Reentra na sala UMA VEZ após reconexão (se houver)
             if self.current_room_to_rejoin:
                 self._log("warn", f"Reconnected. Re-joining room {self.current_room_to_rejoin}")
                 try:
@@ -194,7 +192,7 @@ class MigXBot:
         def disconnect():
             self.connected = False
             self.heartbeat_ativo = False
-            self._log("warn", "Disconnected from Socket.IO")
+            self._log("warn", "Disconnected from Socket.IO — reconnection is automatic")
 
         @self.sio.on("room:message")
         def on_rm(data): self._on_room_message(data)
@@ -220,7 +218,6 @@ class MigXBot:
         def on_any(event, data): pass
 
     def _loop_heartbeat(self):
-        """Envia APENAS user:heartbeat. NÃO reenvia room:join (era a causa do entrar/sair)."""
         while self.heartbeat_ativo:
             try:
                 if self.sio and self.sio.connected:
@@ -232,7 +229,6 @@ class MigXBot:
             time.sleep(HEARTBEAT_INTERVALO)
 
     def _ensure_in_room(self, room_id):
-        """Garante que o bot está numa sala. Só entra se mudou de sala."""
         if self.room_id == room_id:
             return True
         try:
@@ -250,7 +246,6 @@ class MigXBot:
 
     def create_task(self, action, room_ids, params):
         if not room_ids: return None, "No rooms selected"
-        
         room_names = []
         for rid in room_ids:
             room = find_room(rid)
@@ -261,7 +256,6 @@ class MigXBot:
             room_names.append(room["name"])
 
         task = Task(action, room_ids, room_names, params)
-        
         if action == "park" and params.get("park_duration_min", 0) > 0:
             task.park_ends_at = time.time() + params["park_duration_min"] * 60
         if is_event_driven(action) and params.get("play_duration_min", 0) > 0:
@@ -305,22 +299,27 @@ class MigXBot:
         duration = task.params.get("park_duration_min", 0)
         rooms = task.room_ids
         current_idx = 0
-        
-        self._log("info", f"[park] Starting rotation in {len(rooms)} rooms (120s each)")
+        self._log("info", f"[park] {len(rooms)} room(s) selected, 120s each")
         
         while not task.stop_event.is_set():
             if duration > 0 and task.park_ends_at and time.time() >= task.park_ends_at:
                 self._log("info", f"[park] Duration reached")
                 return
-            
             rid = rooms[current_idx % len(rooms)]
-            self._ensure_in_room(rid)
-            
-            # 120 segundos em cada sala (2 minutos). Antes eram 30s, o que causava expulsão.
+            room = find_room(rid)
+            rname = room['name'] if room else f"Room {rid[:6]}"
+            try:
+                entrar_sala_http(self.token, rid)
+                self.sio.emit("room:join", {"roomId": rid})
+                self.current_room_to_rejoin = rid
+                self.room_id = rid
+                self.room_name = rname
+                self._log("ok", f"[park] {self.username} → entered '{rname}' ({current_idx+1}/{len(rooms)})")
+            except Exception as e:
+                self._log("err", f"[park] {self.username} → failed '{rname}': {e}")
             for _ in range(120):
                 if task.stop_event.is_set(): return
                 time.sleep(1)
-            
             current_idx += 1
 
     def _run_gift(self, task):
@@ -329,16 +328,12 @@ class MigXBot:
         gift_key = get_gift_key(user_gift_input)
         count = task.params.get("gift_count", 1)
         interval = task.params.get("gift_interval", 1)
-        
         self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
-        
         self._ensure_in_room(room_id)
-        
         for i in range(count):
             if task.stop_event.is_set(): return
             if self.room_id != room_id:
                 self._ensure_in_room(room_id)
-            
             ok = enviar_mensagem_http(self.token, room_id, f"/gift all {gift_key}")
             if ok:
                 task.gifts_sent = i + 1
@@ -350,7 +345,6 @@ class MigXBot:
     def _run_game(self, task):
         room_id = task.room_ids[0]
         self._ensure_in_room(room_id)
-        
         while not task.stop_event.is_set():
             if task.play_ends_at and time.time() >= task.play_ends_at:
                 self._log("info", f"[{task.action}] duration reached")
@@ -376,7 +370,6 @@ class MigXBot:
         if not name: return
         with self.tasks_lock:
             active = [t for t in self.tasks.values() if t.status == "running"]
-
         if name == "royalebattle":
             for t in active:
                 if t.action == "royale": self._handle_royale(t, game)

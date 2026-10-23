@@ -2,104 +2,167 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MigX Bot - Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MigX Bot - Super Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #11111b; color: #cdd6f4; min-height: 100vh; padding: 1.5rem; }
-        .container { max-width: 1300px; margin: 0 auto; }
-        h1 { font-size: 1.5rem; color: #f38ba8; margin-bottom: 1.5rem; }
-        .login-card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 2rem; max-width: 400px; margin: 4rem auto; }
-        .login-card h2 { color: #89b4fa; margin-bottom: 1rem; }
-        .field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; }
-        .field label { font-size: 0.85rem; color: #a6adc8; font-weight: 600; }
-        .field input { padding: 0.8rem 1rem; background: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 0.95rem; }
-        .field input:focus { outline: none; border-color: #89b4fa; }
-        .btn-primary { background: #89b4fa; color: #1e1e2e; padding: 0.75rem 1.6rem; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
-        .btn-danger { background: #f38ba8; color: #1e1e2e; border: none; border-radius: 6px; padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
-        .btn-logout { background: #f38ba8; color: #1e1e2e; padding: 0.6rem 1.2rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .card { background: #181825; border: 1px solid #313244; border-radius: 12px; padding: 1.2rem; }
-        .card h3 { font-size: 1rem; color: #89b4fa; margin-bottom: 0.8rem; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { text-align: left; padding: 0.6rem 0.4rem; border-bottom: 1px solid #313244; }
-        th { color: #a6adc8; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
-        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
-        .badge-on { background: #a6e3a1; color: #1e1e2e; }
-        .badge-off { background: #6c7086; color: #cdd6f4; }
-        .hidden { display: none; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        :root { --glass-bg: rgba(30,41,59,0.8); --glass-border: rgba(255,255,255,0.1); --primary:#3b82f6; --danger:#ef4444; --success:#10b981; --warn:#f59e0b; --text-main:#f8fafc; --text-muted:#94a3b8; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Outfit',sans-serif; }
+        body { background: linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); color:var(--text-main); min-height:100vh; padding:1rem; }
+        .container { max-width:1400px; margin:0 auto; }
+        header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:0.8rem; }
+        h1 { font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:0.5rem; }
+        h1 i { color:var(--danger); }
+        .btn { padding:0.6rem 1rem; border-radius:10px; border:none; font-weight:600; cursor:pointer; font-size:0.85rem; }
+        .btn-primary { background:var(--primary); color:white; }
+        .btn-primary:hover { background:#2563eb; }
+        .btn-danger { background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); }
+        .btn-danger:hover { background:rgba(239,68,68,0.4); }
+        .btn-warn { background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.3); }
+        .btn-warn:hover { background:rgba(245,158,11,0.4); }
+        .btn-small { padding:0.3rem 0.6rem; font-size:0.75rem; }
+        
+        .login-card { background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:2rem; max-width:400px; margin:4rem auto; }
+        .login-card h2 { color:var(--primary); margin-bottom:1rem; font-size:1.1rem; }
+        .field { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
+        .field label { font-size:0.8rem; color:var(--text-muted); font-weight:600; }
+        .field input { padding:0.8rem 1rem; background:rgba(15,23,42,0.7); border:1px solid var(--glass-border); border-radius:10px; color:var(--text-main); font-size:0.95rem; }
+        .field input:focus { outline:none; border-color:var(--primary); }
+        .hidden { display:none; }
+
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:0.8rem; margin-bottom:1.2rem; }
+        .stat-card { background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px; padding:1rem; }
+        .stat-card .label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+        .stat-card .value { font-size:1.6rem; font-weight:700; margin-top:0.3rem; }
+
+        .panel { background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:16px; padding:1.2rem; margin-bottom:1.2rem; }
+        .panel h2 { font-size:1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; }
+        .search-bar { width:100%; padding:0.7rem 1rem; background:rgba(15,23,42,0.7); border:1px solid var(--glass-border); border-radius:10px; color:var(--text-main); margin-bottom:0.8rem; font-size:0.9rem; }
+
+        .table-responsive { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+        th, td { padding:0.7rem 0.5rem; text-align:left; border-bottom:1px solid var(--glass-border); vertical-align:middle; }
+        th { color:var(--text-muted); font-weight:500; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.3px; }
+        .badge { display:inline-block; padding:0.2rem 0.6rem; border-radius:50px; font-size:0.7rem; font-weight:700; }
+        .badge-on { background:rgba(16,185,129,0.2); color:var(--success); }
+        .badge-off { background:rgba(148,163,184,0.2); color:var(--text-muted); }
+        .badge-running { background:rgba(16,185,129,0.2); color:var(--success); }
+        .badge-stopped { background:rgba(239,68,68,0.2); color:var(--danger); }
+        .badge-finished { background:rgba(148,163,184,0.2); color:var(--text-muted); }
+        .mono { font-family:'Consolas',monospace; font-size:0.8rem; }
+        .password-cell { display:flex; align-items:center; gap:0.4rem; }
+        .password-cell .pwd { font-family:'Consolas',monospace; font-size:0.8rem; color:var(--warn); }
+        .password-cell i { cursor:pointer; color:var(--text-muted); }
+
+        .log-box { background:#000; border-radius:10px; padding:0.8rem; font-family:'Consolas',monospace; font-size:0.8rem; height:300px; overflow-y:auto; border:1px solid var(--glass-border); }
+        .log-line { margin-bottom:0.2rem; line-height:1.4; word-break:break-all; }
+        .log-line .time { color:#64748b; margin-right:0.4rem; }
+        .log-line.ok { color:var(--success); } .log-line.warn { color:var(--warn); } .log-line.err { color:var(--danger); }
+
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); display:none; justify-content:center; align-items:center; z-index:1000; padding:1rem; }
+        .modal-overlay.active { display:flex; }
+        .modal-content { background:#1e293b; width:100%; max-width:700px; border-radius:16px; padding:1.5rem; max-height:80vh; display:flex; flex-direction:column; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
+
+        .rooms-form { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:0.5rem; margin-bottom:1rem; }
+        @media (max-width:768px) { .rooms-form { grid-template-columns:1fr; } }
+        .rooms-form input { padding:0.6rem 0.8rem; background:rgba(15,23,42,0.7); border:1px solid var(--glass-border); border-radius:8px; color:var(--text-main); font-size:0.85rem; }
     </style>
 </head>
 <body>
     <div class="container">
         <header id="admin-header" class="hidden">
-            <h1>🔐 MigX Bot — Admin</h1>
-            <button class="btn-logout" id="admin-logout">Logout</button>
+            <h1><i class="fa-solid fa-shield-halved"></i> Super Admin</h1>
+            <button class="btn btn-danger" id="admin-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
         </header>
 
+        <!-- LOGIN -->
         <div class="login-card" id="login-box">
-            <h2>Admin Login</h2>
+            <h2><i class="fa-solid fa-lock"></i> Admin Login</h2>
             <div class="field"><label>Username</label><input type="text" id="admin-user" value="admin"></div>
-            <div class="field"><label>Password</label><input type="password" id="admin-pass"></div>
-            <button class="btn-primary" id="admin-login-btn">Login</button>
-            <div id="login-msg" style="margin-top:0.8rem; font-size:0.85rem;"></div>
+            <div class="field"><label>Password</label><input type="password" id="admin-pass" placeholder="Enter password"></div>
+            <button class="btn btn-primary" id="admin-login-btn" style="width:100%;"><i class="fa-solid fa-sign-in-alt"></i> Login</button>
+            <div id="login-msg" style="margin-top:0.8rem;font-size:0.85rem;"></div>
         </div>
 
+        <!-- DASHBOARD -->
         <div class="hidden" id="admin-dashboard">
-            <div class="grid">
-                <div class="card">
-                    <h3>Online Users</h3>
-                    <div id="online-users">—</div>
-                </div>
-                <div class="card">
-                    <h3>Bot Status</h3>
-                    <div id="bot-status">—</div>
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card"><div class="label">Total Bots</div><div class="value" id="stat-total">0</div></div>
+                <div class="stat-card"><div class="label">Online</div><div class="value" style="color:var(--success)" id="stat-online">0</div></div>
+                <div class="stat-card"><div class="label">Offline</div><div class="value" style="color:var(--danger)" id="stat-offline">0</div></div>
+                <div class="stat-card"><div class="label">Running Tasks</div><div class="value" style="color:var(--warn)" id="stat-tasks">0</div></div>
+                <div class="stat-card"><div class="label">Users</div><div class="value" id="stat-users">0</div></div>
+            </div>
+
+            <!-- All Bots -->
+            <div class="panel">
+                <h2><i class="fa-solid fa-users"></i> All Bots (all users)</h2>
+                <input type="text" class="search-bar" id="search-bots" placeholder="Search by username...">
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>User</th><th>Bot</th><th>Password</th><th>Status</th><th>Room</th><th>Saldo</th><th>Uptime</th><th>Actions</th></tr></thead>
+                        <tbody id="bots-body"></tbody>
+                    </table>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:1.5rem;">
-                <h3>Active Tasks</h3>
-                <table>
-                    <thead><tr><th>Action</th><th>Room</th><th>Params</th><th>Status</th></tr></thead>
-                    <tbody id="admin-tasks-body"></tbody>
-                </table>
+            <!-- All Tasks -->
+            <div class="panel">
+                <h2><i class="fa-solid fa-list-check"></i> All Tasks (all bots)</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>User</th><th>Bot</th><th>Action</th><th>Room</th><th>Progress</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="tasks-body"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <div class="card">
-                <h3>Manage Rooms</h3>
-                <table>
-                    <thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead>
-                    <tbody id="admin-rooms-body"></tbody>
-                </table>
-                <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-                    <input type="text" id="new-room-id" placeholder="Room ID" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:200px;">
-                    <input type="text" id="new-room-name" placeholder="Room name" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:150px;">
-                    <input type="text" id="new-room-actions" placeholder="park,gift" style="padding:0.6rem; background:#313244; border:1px solid #45475a; border-radius:6px; color:#cdd6f4; flex:1; min-width:120px;">
-                    <button class="btn-primary" id="add-room-btn">Add Room</button>
+            <!-- Rooms -->
+            <div class="panel">
+                <h2><i class="fa-solid fa-door-open"></i> Manage Rooms</h2>
+                <div class="rooms-form">
+                    <input type="text" id="new-room-id" placeholder="Room ID">
+                    <input type="text" id="new-room-name" placeholder="Room Name">
+                    <input type="text" id="new-room-actions" placeholder="park,gift">
+                    <button class="btn btn-primary" id="add-room-btn"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="table-responsive">
+                    <table><thead><tr><th>Name</th><th>ID</th><th>Actions</th><th></th></tr></thead><tbody id="rooms-body"></tbody></table>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Tenta ler o token da sessão normal (login principal)
-        let adminToken = sessionStorage.getItem('token') || sessionStorage.getItem('admin_token');
+    <!-- LOGS MODAL -->
+    <div class="modal-overlay" id="logs-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="font-size:1rem;"><i class="fa-solid fa-terminal"></i> Logs — <span id="logs-title"></span></h3>
+                <button class="btn btn-danger btn-small" onclick="closeLogs()">&times;</button>
+            </div>
+            <div class="log-box" id="logs-content"></div>
+        </div>
+    </div>
 
-        const decodeJwt = (token) => {
-            try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
-        };
+    <script>
+        let adminToken = sessionStorage.getItem('admin_token') || localStorage.getItem('token');
+        const decodeJwt = t => { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } };
+
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const fmtTime = s => s<60?s+'s':s<3600?Math.floor(s/60)+'m':Math.floor(s/3600)+'h';
+
+        let ALL_BOTS = [];
 
         const showDashboard = () => {
             document.getElementById('login-box').classList.add('hidden');
             document.getElementById('admin-header').classList.remove('hidden');
             document.getElementById('admin-dashboard').classList.remove('hidden');
             refreshAdmin();
-            if (!window._adminInterval) {
-                window._adminInterval = setInterval(refreshAdmin, 3000);
-            }
+            if (!window._adminInterval) window._adminInterval = setInterval(refreshAdmin, 4000);
         };
-
         const showLogin = () => {
             document.getElementById('login-box').classList.remove('hidden');
             document.getElementById('admin-header').classList.add('hidden');
@@ -119,10 +182,11 @@
                 const d = await res.json();
                 adminToken = d.access_token;
                 sessionStorage.setItem('admin_token', adminToken);
+                document.getElementById('login-msg').textContent = '';
                 showDashboard();
             } else {
                 document.getElementById('login-msg').textContent = 'Invalid credentials';
-                document.getElementById('login-msg').style.color = '#f38ba8';
+                document.getElementById('login-msg').style.color = '#ef4444';
             }
         };
 
@@ -130,36 +194,168 @@
             if (!adminToken) return;
             const headers = {'Authorization': `Bearer ${adminToken}`};
             try {
-                const [sessRes, roomsRes] = await Promise.all([
-                    fetch('/api/admin/sessions', {headers}),
+                const [botsRes, roomsRes] = await Promise.all([
+                    fetch('/api/admin/all-bots', {headers}),
                     fetch('/api/admin/rooms', {headers})
                 ]);
-                if (sessRes.status === 403) { 
-                    sessionStorage.clear(); 
-                    showLogin();
-                    return; 
-                }
-                const sess = await sessRes.json();
-                const rooms = await roomsRes.json();
+                if (botsRes.status === 403 || botsRes.status === 401) { sessionStorage.clear(); showLogin(); return; }
+                const botsData = await botsRes.json();
+                const roomsData = await roomsRes.json();
+                ALL_BOTS = botsData.bots || [];
 
-                document.getElementById('online-users').textContent = sess.online_users.length ? sess.online_users.join(', ') : 'None';
-                document.getElementById('bot-status').innerHTML = sess.bot_running
-                    ? `<span class="badge badge-on">Running</span> (${sess.bot_username})`
-                    : '<span class="badge badge-off">Offline</span>';
+                // Stats
+                const online = ALL_BOTS.filter(b => b.connected).length;
+                const total = ALL_BOTS.length;
+                const totalTasks = ALL_BOTS.reduce((acc, b) => acc + (b.task_count || 0), 0);
+                const users = new Set(ALL_BOTS.map(b => b.main_user)).size;
+                document.getElementById('stat-total').textContent = total;
+                document.getElementById('stat-online').textContent = online;
+                document.getElementById('stat-offline').textContent = total - online;
+                document.getElementById('stat-tasks').textContent = totalTasks;
+                document.getElementById('stat-users').textContent = users;
 
-                document.getElementById('admin-tasks-body').innerHTML = sess.tasks.map(t =>
-                    `<tr><td>${t.action}</td><td>${t.room_name}</td><td>${JSON.stringify(t.params)}</td><td>${t.status}</td></tr>`
-                ).join('') || '<tr><td colspan="4" style="color:#6c7086">No tasks</td></tr>';
-
-                document.getElementById('admin-rooms-body').innerHTML = rooms.rooms.map(r =>
-                    `<tr><td>${r.name}</td><td>${r.id}</td><td>${r.actions.join(', ')}</td>
-                     <td><button class="btn-danger" onclick="removeRoom('${r.id}')">Remove</button></td></tr>`
-                ).join('');
-            } catch (e) {}
+                renderBots();
+                renderTasks();
+                renderRooms(roomsData.rooms);
+            } catch (e) { console.error(e); }
         };
 
+        const renderBots = () => {
+            const filter = (document.getElementById('search-bots').value || '').toLowerCase();
+            const filtered = ALL_BOTS.filter(b =>
+                b.username.toLowerCase().includes(filter) || b.main_user.toLowerCase().includes(filter)
+            );
+            const tbody = document.getElementById('bots-body');
+            if (!filtered.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No bots found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = filtered.map(b => `
+                <tr>
+                    <td>${escapeHtml(b.main_user)}</td>
+                    <td><strong>${escapeHtml(b.username)}</strong></td>
+                    <td>
+                        <div class="password-cell">
+                            <span class="pwd" id="pwd-${escapeHtml(b.username)}">${'•'.repeat(Math.min(10, (b.password||'').length))}</span>
+                            <i class="fa-solid fa-eye" onclick="togglePwd('${escapeHtml(b.username)}', '${escapeHtml(b.password||'')}')"></i>
+                        </div>
+                    </td>
+                    <td><span class="badge ${b.connected?'badge-on':'badge-off'}">${b.connected?'Online':'Offline'}</span></td>
+                    <td>${escapeHtml(b.room_name || '—')}</td>
+                    <td>${b.saldo ?? '—'}</td>
+                    <td>${b.connected ? fmtTime(b.uptime) : '—'}</td>
+                    <td style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+                        ${b.connected ? `<button class="btn btn-warn btn-small" onclick="forceRelogin('${escapeHtml(b.main_user)}','${escapeHtml(b.username)}')" title="Re-login"><i class="fa-solid fa-rotate"></i></button>` : ''}
+                        ${b.connected ? `<button class="btn btn-warn btn-small" onclick="viewLogs('${escapeHtml(b.main_user)}','${escapeHtml(b.username)}')" title="Logs"><i class="fa-solid fa-terminal"></i></button>` : ''}
+                        <button class="btn btn-danger btn-small" onclick="deleteBot('${escapeHtml(b.main_user)}','${escapeHtml(b.username)}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        };
+
+        const renderTasks = () => {
+            const tbody = document.getElementById('tasks-body');
+            const rows = [];
+            // Carrega tarefas de todos os bots vivos (via /api/admin/sessions que já tens)
+            fetch('/api/admin/sessions', {headers: {'Authorization': `Bearer ${adminToken}`}})
+                .then(r => r.json())
+                .then(sess => {
+                    for (const [name, info] of Object.entries(sess.active_bots || {})) {
+                        for (const t of (info.tasks || [])) {
+                            const [main_user, bot_name] = name.split(' → ');
+                            let pr = t.action === 'gift' ? `${t.gifts_sent}/${t.gift_target}` : `${t.gifts_sent} acts`;
+                            if (t.park_ends_at) pr = fmtTime(Math.max(0, Math.floor(t.park_ends_at - Date.now()/1000))) + ' left';
+                            const badge = t.status === 'running' ? 'badge-running' : t.status === 'stopped' ? 'badge-stopped' : 'badge-finished';
+                            const btn = t.status === 'running'
+                                ? `<button class="btn btn-danger btn-small" onclick="stopTask('${escapeHtml(main_user)}','${escapeHtml(bot_name)}','${t.id}')"><i class="fa-solid fa-stop"></i></button>`
+                                : '';
+                            rows.push(`<tr>
+                                <td>${escapeHtml(main_user)}</td>
+                                <td>${escapeHtml(bot_name)}</td>
+                                <td>${escapeHtml(t.action.toUpperCase())}</td>
+                                <td>${escapeHtml(t.room_name || '—')}</td>
+                                <td>${escapeHtml(pr)}</td>
+                                <td><span class="badge ${badge}">${t.status}</span></td>
+                                <td>${btn}</td>
+                            </tr>`);
+                        }
+                    }
+                    tbody.innerHTML = rows.join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No tasks</td></tr>';
+                })
+                .catch(() => { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Error loading tasks</td></tr>'; });
+        };
+
+        const renderRooms = (rooms) => {
+            document.getElementById('rooms-body').innerHTML = rooms.map(r => `
+                <tr>
+                    <td>${escapeHtml(r.name)}</td>
+                    <td class="mono">${escapeHtml(r.id)}</td>
+                    <td>${escapeHtml(r.actions.join(', '))}</td>
+                    <td><button class="btn btn-danger btn-small" onclick="removeRoom('${escapeHtml(r.id)}')"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>
+            `).join('');
+        };
+
+        window.togglePwd = (username, pwd) => {
+            const el = document.getElementById('pwd-' + username);
+            if (!el) return;
+            if (el.dataset.revealed === '1') {
+                el.textContent = '•'.repeat(Math.min(10, pwd.length));
+                el.dataset.revealed = '0';
+            } else {
+                el.textContent = pwd;
+                el.dataset.revealed = '1';
+            }
+        };
+
+        window.stopTask = async (mainUser, botName, taskId) => {
+            if (!confirm(`Stop task ${taskId} on ${botName}?`)) return;
+            const res = await fetch(`/api/admin/stop-task/${mainUser}/${botName}/${taskId}`, {
+                method: 'POST', headers: {'Authorization': `Bearer ${adminToken}`}
+            });
+            if (res.ok) refreshAdmin();
+            else alert('Failed to stop task');
+        };
+
+        window.forceRelogin = async (mainUser, botName) => {
+            if (!confirm(`Force re-login for ${botName}?`)) return;
+            const res = await fetch(`/api/admin/force-relogin/${mainUser}/${botName}`, {
+                method: 'POST', headers: {'Authorization': `Bearer ${adminToken}`}
+            });
+            if (res.ok) refreshAdmin();
+            else alert('Re-login failed');
+        };
+
+        window.deleteBot = async (mainUser, botName) => {
+            if (!confirm(`Delete bot ${botName} permanently?`)) return;
+            const res = await fetch(`/api/admin/delete-bot/${mainUser}/${botName}`, {
+                method: 'DELETE', headers: {'Authorization': `Bearer ${adminToken}`}
+            });
+            if (res.ok) refreshAdmin();
+        };
+
+        window.viewLogs = async (mainUser, botName) => {
+            document.getElementById('logs-title').textContent = `${mainUser} → ${botName}`;
+            document.getElementById('logs-modal').classList.add('active');
+            document.getElementById('logs-content').innerHTML = '<div style="color:var(--text-muted);">Loading...</div>';
+            try {
+                const res = await fetch(`/api/admin/logs/${mainUser}/${botName}`, {
+                    headers: {'Authorization': `Bearer ${adminToken}`}
+                });
+                if (!res.ok) throw new Error('failed');
+                const d = await res.json();
+                document.getElementById('logs-content').innerHTML = d.logs.map(l => {
+                    const txt = typeof l.texto === 'object' ? JSON.stringify(l.texto) : String(l.texto);
+                    return `<div class="log-line ${l.nivel}"><span class="time">${l.ts}</span>${escapeHtml(txt)}</div>`;
+                }).join('') || '<div style="color:var(--text-muted);">No logs</div>';
+            } catch(e) {
+                document.getElementById('logs-content').innerHTML = '<div style="color:var(--danger);">Failed to load logs</div>';
+            }
+        };
+        const closeLogs = () => document.getElementById('logs-modal').classList.remove('active');
+
         window.removeRoom = async (id) => {
-            if (!confirm('Remove this room?')) return;
+            if (!confirm('Remove room?')) return;
             await fetch(`/api/admin/rooms/${id}`, {method: 'DELETE', headers: {'Authorization': `Bearer ${adminToken}`}});
             refreshAdmin();
         };
@@ -168,7 +364,7 @@
             const id = document.getElementById('new-room-id').value.trim();
             const name = document.getElementById('new-room-name').value.trim();
             const actions = document.getElementById('new-room-actions').value.split(',').map(s => s.trim()).filter(Boolean);
-            if (!id || !name || !actions.length) return;
+            if (!id || !name || !actions.length) { alert('Fill all fields'); return; }
             const res = await fetch('/api/admin/rooms', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}`},
@@ -177,26 +373,26 @@
             if (res.ok) {
                 document.getElementById('new-room-id').value = '';
                 document.getElementById('new-room-name').value = '';
+                document.getElementById('new-room-actions').value = '';
                 refreshAdmin();
+            } else {
+                const d = await res.json();
+                alert(d.detail || 'Failed');
             }
         });
 
         document.getElementById('admin-login-btn').addEventListener('click', login);
-
+        document.getElementById('search-bots').addEventListener('input', renderBots);
         document.getElementById('admin-logout').addEventListener('click', () => {
-            sessionStorage.clear();
-            window.location.href = '/';
+            sessionStorage.removeItem('admin_token');
+            showLogin();
         });
 
-        // --- BOOTSTRAP ---
-        // Se já existe um token de admin (role=admin), entra direto na dashboard
+        // Bootstrap
         if (adminToken) {
             const payload = decodeJwt(adminToken);
-            if (payload && payload.role === 'admin') {
-                showDashboard();
-            } else {
-                showLogin();
-            }
+            if (payload && payload.role === 'admin') showDashboard();
+            else showLogin();
         } else {
             showLogin();
         }

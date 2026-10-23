@@ -300,32 +300,45 @@ class MigXBot:
 
     def _run_park(self, task):
         duration = task.params.get("park_duration_min", 0)
-        rooms = task.room_ids
-        current_idx = 0
-        self._log("info", f"[park] {len(rooms)} room(s) selected, rotating every 5s forever")
+        room_id = task.room_ids[0]
+        keepalive_cmd = "!start"  # comando que o servidor vai rejeitar num room de chat
+        
+        self._log("info", f"[park] Staying in '{task.room_names[0]}' (keep-alive: {keepalive_cmd})")
         
         while not task.stop_event.is_set():
             if duration > 0 and task.park_ends_at and time.time() >= task.park_ends_at:
                 self._log("info", f"[park] Duration reached")
                 return
-            rid = rooms[current_idx % len(rooms)]
-            room = find_room(rid)
-            rname = room['name'] if room else f"Room {rid[:6]}"
+            
+            # Entra na sala se não estiver
+            if self.room_id != room_id:
+                try:
+                    with _room_join_lock:
+                        entrar_sala_http(self.token, room_id)
+                        time.sleep(0.5)
+                    self.sio.emit("room:join", {"roomId": room_id})
+                    self.current_room_to_rejoin = room_id
+                    self.room_id = room_id
+                    self.room_name = task.room_names[0]
+                    self._log("ok", f"[park] {self.username} → '{self.room_name}'")
+                except Exception as e:
+                    self._log("err", f"[park] failed: {e}")
+            
+            # Keep-alive: envia comando que será rejeitado mas conta como atividade
             try:
-                with _room_join_lock:
-                    entrar_sala_http(self.token, rid)
-                    time.sleep(0.3)
-                self.sio.emit("room:join", {"roomId": rid})
-                self.current_room_to_rejoin = rid
-                self.room_id = rid
-                self.room_name = rname
-                self._log("ok", f"[park] {self.username} → '{rname}' ({current_idx+1}/{len(rooms)})")
+                ok, resp = enviar_mensagem_http(self.token, room_id, keepalive_cmd)
+                if ok:
+                    self._log("info", f"[park] keep-alive accepted")
+                else:
+                    # Rejeitado, mas enviado (atividade registada)
+                    self._log("info", f"[park] keep-alive sent (rejected by server)")
             except Exception as e:
-                self._log("err", f"[park] {self.username} → failed '{rname}': {e}")
-            for _ in range(5):
+                self._log("err", f"[park] keep-alive error: {e}")
+            
+            # Espera 45s antes do próximo keep-alive
+            for _ in range(45):
                 if task.stop_event.is_set(): return
                 time.sleep(1)
-            current_idx += 1
 
     def _run_gift(self, task):
         room_id = task.room_ids[0]

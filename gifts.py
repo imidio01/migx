@@ -1,8 +1,9 @@
 # gifts.py
-
 GIFTS = {
-    # Premium
-    "super car": {"name": "Super Car", "price": 10},
+    # O fly é o único que confirmaste que funciona. Adiciona os outros à medida que descobres as chaves.
+    "fly": {"name": "Fly", "price": 10},
+    "happy friday": {"name": "Happy Friday", "price": 13},
+    "super car": {"name": "Super Car", "price": 10000},
     "zippo": {"name": "Zippo", "price": 500},
     "ring": {"name": "Ring", "price": 60},
     "muhaah": {"name": "Muhaah", "price": 65},
@@ -18,8 +19,6 @@ GIFTS = {
     "super bike": {"name": "Super Bike", "price": 7500},
     "legend": {"name": "Legend", "price": 100},
     "heart": {"name": "Heart", "price": 100},
-
-    # Event
     "happy birthday": {"name": "Happy Birthday", "price": 30},
     "happy girlfriend day": {"name": "Happy Girlfriend Day", "price": 50},
     "indonesia independence": {"name": "Indonesia Independence", "price": 20},
@@ -28,8 +27,6 @@ GIFTS = {
     "world teachers day": {"name": "World Teachers Day", "price": 50},
     "tika": {"name": "Tika", "price": 40},
     "dashain aayo": {"name": "Dashain Aayo", "price": 15},
-
-    # Special
     "you are mine": {"name": "You Are Mine", "price": 40},
     "love brother": {"name": "Love Brother", "price": 40},
     "car": {"name": "Car", "price": 5000},
@@ -67,13 +64,24 @@ GIFTS = {
 
 def get_gift_key(user_input):
     """
-    Transforma o que o utilizador escreveu na chave do comando.
-    Ex: "Super Car" -> "super_car"
+    Devolve a chave que o servidor MigX espera.
+    O servidor aceita 'fly' (com espaço? não — só 'fly').
+    Se o user escrever "Super Car", tenta encontrar na lista.
+    Se não encontrar, devolve o input normalizado (minúsculas, espaços → nada? ou _?)
     """
+    if not user_input:
+        return "fly"
+    
     normalized = user_input.strip().lower()
+    
+    # Se está na lista como chave, devolve a chave tal como está
     if normalized in GIFTS:
-        return normalized.replace(" ", "_")
+        return normalized  # ex: "fly" → "fly", "super car" → "super car" (o servidor pode aceitar com espaço)
+    
+    # Se o user escreveu o nome (ex: "Super Car"), encontra a chave
     for key, data in GIFTS.items():
         if data["name"].lower() == normalized:
-            return key.replace(" ", "_")
-    return normalized.replace(" ", "_")
+            return key  # devolve a chave como está na lista
+    
+    # Se não encontrar, devolve o que o user escreveu (sem underscores, o servidor pode não gostar)
+    return normalized

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,75 +8,519 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { --glass-bg: rgba(30,41,59,0.8); --glass-border: rgba(255,255,255,0.1); --primary:#3b82f6; --primary-hover:#2563eb; --success:#10b981; --danger:#ef4444; --text-main:#f8fafc; --text-muted:#94a3b8; --nav-height: 64px; }
-        * { margin:0; padding:0; box-sizing:border-box; font-family:'Outfit',sans-serif; }
-        body { background: linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); color:var(--text-main); min-height:100vh; padding:1rem; padding-bottom: calc(var(--nav-height) + 1rem); }
-        .container { width:100%; max-width:1200px; margin:0 auto; }
-        header { display:flex; justify-content:space-between; align-items:center; padding:1rem 0; margin-bottom:1rem; }
-        h1 { font-size:1.3rem; font-weight:700; display:flex; align-items:center; gap:0.5rem; }
-        h1 i { color:var(--primary); }
-        .btn-logout { background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); padding:0.5rem 1rem; border-radius:50px; font-weight:600; cursor:pointer; font-size:0.85rem; }
-        .tab-content { display:none; }
-        .tab-content.active { display:block; animation: fadeIn 0.2s ease; }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.8rem; margin-bottom:1rem; }
-        .card { background:var(--glass-bg); backdrop-filter:blur(12px); border:1px solid var(--glass-border); border-radius:14px; padding:1rem; display:flex; flex-direction:column; gap:0.4rem; }
-        .card .label { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
-        .status-indicator { display:flex; align-items:center; gap:0.4rem; font-weight:600; font-size:0.9rem; }
-        .dot { width:8px; height:8px; border-radius:50%; }
-        .dot.on { background:var(--success); box-shadow:0 0 8px var(--success); }
-        .dot.off { background:var(--danger); }
-        .panel { background:var(--glass-bg); backdrop-filter:blur(12px); border:1px solid var(--glass-border); border-radius:16px; padding:1.2rem; margin-bottom:1rem; }
-        .panel h2 { font-size:1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; }
-        .form-group { margin-bottom:1rem; }
-        .form-group label { display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem; }
-        .form-control { width:100%; background:rgba(15,23,42,0.7); border:1px solid var(--glass-border); color:white; padding:0.7rem 0.9rem; border-radius:10px; font-size:0.95rem; }
-        .form-control:focus { outline:none; border-color:var(--primary); }
-        .row { display:flex; gap:0.8rem; flex-wrap:wrap; }
-        .col { flex:1; min-width:120px; }
-        .btn-primary { width:100%; background:var(--primary); color:white; border:none; padding:0.9rem; border-radius:12px; font-size:1rem; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:0.5rem; }
-        .btn-primary:disabled { opacity:0.5; }
-        .btn-secondary { background:rgba(148,163,184,0.2); color:var(--text-main); border:1px solid var(--glass-border); padding:0.6rem 1rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.85rem; }
-        .room-trigger { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
-        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); display:none; justify-content:center; align-items:flex-end; z-index:1000; }
-        .modal-overlay.active { display:flex; }
-        .modal-content { background:#1e293b; width:100%; max-width:500px; border-radius:20px 20px 0 0; padding:1.5rem; max-height:80vh; display:flex; flex-direction:column; }
-        @media (min-width:600px) { .modal-overlay { align-items:center; } .modal-content { border-radius:20px; } }
-        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-        .btn-close { background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; }
-        .room-list { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:0.4rem; padding-right:0.3rem; margin-bottom:1rem; }
-        .room-item { padding:0.8rem; background:rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border:1px solid transparent; font-size:0.9rem; }
-        .room-item:hover { background:rgba(255,255,255,0.1); }
-        .room-item.selected { border:1px solid var(--primary); background:rgba(59,130,246,0.1); }
-        .room-item.selected::after { content:'\f00c'; font-family:'Font Awesome 6 Free'; font-weight:900; color:var(--primary); }
-        .selected-chips { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.4rem; }
-        .chip { background:rgba(59,130,246,0.2); color:#93c5fd; padding:0.25rem 0.7rem; border-radius:50px; font-size:0.75rem; display:flex; align-items:center; gap:0.3rem; border:1px solid rgba(59,130,246,0.4); }
-        .table-responsive { overflow-x:auto; }
-        table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-        th, td { padding:0.8rem 0.5rem; text-align:left; border-bottom:1px solid var(--glass-border); }
-        th { color:var(--text-muted); font-weight:500; font-size:0.7rem; text-transform:uppercase; }
-        .badge { padding:0.2rem 0.6rem; border-radius:50px; font-size:0.7rem; font-weight:600; }
-        .badge.running { background:rgba(16,185,129,0.2); color:var(--success); }
-        .badge.finished { background:rgba(148,163,184,0.2); color:var(--text-muted); }
-        .badge.stopped { background:rgba(239,68,68,0.2); color:var(--danger); }
-        .btn-stop { background:rgba(239,68,68,0.2); color:var(--danger); border:none; padding:0.3rem 0.6rem; border-radius:6px; cursor:pointer; font-size:0.8rem; }
-        .log-box { background:#000; border-radius:10px; padding:0.8rem; font-family:'Consolas',monospace; font-size:0.8rem; height:250px; overflow-y:auto; border:1px solid var(--glass-border); }
-        .log-line { margin-bottom:0.2rem; line-height:1.4; word-break:break-all; }
-        .log-line .time { color:#64748b; margin-right:0.4rem; }
-        .log-line.ok { color:var(--success); } .log-line.warn { color:#fbbf24; } .log-line.err { color:var(--danger); }
-        .bot-row { display:flex; justify-content:space-between; align-items:center; padding:0.7rem; background:rgba(255,255,255,0.05); border-radius:10px; margin-bottom:0.4rem; }
-        .checkbox-group { display:flex; flex-direction:column; gap:0.4rem; margin-top:0.4rem; }
-        .checkbox-item { display:flex; align-items:center; gap:0.5rem; padding:0.5rem; background:rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; }
-        .checkbox-item:hover { background:rgba(255,255,255,0.08); }
-        .checkbox-item input[type=checkbox] { width:18px; height:18px; cursor:pointer; }
+        :root {
+            --glass-bg: rgba(30, 41, 59, 0.8);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --nav-height: 64px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 1rem;
+            padding-bottom: calc(var(--nav-height) + 1rem);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h1 i {
+            color: var(--primary);
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .card .label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .dot.on {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .dot.off {
+            background: var(--danger);
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.7rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.95rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .row {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .col {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.9rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+        }
+
+        .btn-secondary {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .room-trigger {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 20px 20px 0 0;
+            padding: 1.5rem;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (min-width:600px) {
+            .modal-overlay {
+                align-items: center;
+            }
+
+            .modal-content {
+                border-radius: 20px;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .room-list {
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            padding-right: 0.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .room-item {
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+        }
+
+        .room-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .room-item.selected {
+            border: 1px solid var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .room-item.selected::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .selected-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .chip {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            padding: 0.25rem 0.7rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th,
+        td {
+            padding: 0.8rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge.running {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge.finished {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-muted);
+        }
+
+        .badge.stopped {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: none;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .log-box {
+            background: #000;
+            border-radius: 10px;
+            padding: 0.8rem;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--glass-border);
+        }
+
+        .log-line {
+            margin-bottom: 0.2rem;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .log-line .time {
+            color: #64748b;
+            margin-right: 0.4rem;
+        }
+
+        .log-line.ok {
+            color: var(--success);
+        }
+
+        .log-line.warn {
+            color: #fbbf24;
+        }
+
+        .log-line.err {
+            color: var(--danger);
+        }
+
+        .bot-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.7rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 0.4rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .checkbox-item input[type=checkbox] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
         /* BOTTOM NAV */
-        .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-height); background:rgba(15,23,42,0.95); backdrop-filter:blur(20px); border-top:1px solid var(--glass-border); display:flex; justify-content:space-around; align-items:center; z-index:999; padding-bottom:env(safe-area-inset-bottom); }
-        .bottom-nav .nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--text-muted); font-size:0.65rem; cursor:pointer; padding:0.3rem 0.8rem; border-radius:10px; transition:0.2s; border:none; background:none; }
-        .bottom-nav .nav-item i { font-size:1.2rem; }
-        .bottom-nav .nav-item.active { color:var(--primary); }
-        @media (min-width:768px) { .bottom-nav { display:none; } body { padding-bottom:1rem; } }
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 999;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            cursor: pointer;
+            padding: 0.3rem 0.8rem;
+            border-radius: 10px;
+            transition: 0.2s;
+            border: none;
+            background: none;
+        }
+
+        .bottom-nav .nav-item i {
+            font-size: 1.2rem;
+        }
+
+        .bottom-nav .nav-item.active {
+            color: var(--primary);
+        }
+
+        @media (min-width:768px) {
+            .bottom-nav {
+                display: none;
+            }
+
+            body {
+                padding-bottom: 1rem;
+            }
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -83,26 +528,46 @@
             <button class="btn-logout" id="logout"><i class="fa-solid fa-right-from-bracket"></i></button>
         </header>
 
-        <div class="tab-content active" id="tab-overview"><div class="grid" id="bots-overview"></div></div>
+        <div class="tab-content active" id="tab-overview">
+            <div class="grid" id="bots-overview"></div>
+        </div>
 
         <div class="tab-content" id="tab-my-bots">
             <div class="panel">
                 <h2><i class="fa-solid fa-plus"></i> Add a Bot</h2>
                 <div class="row">
-                    <div class="col"><input type="text" id="new-bot-user" class="form-control" placeholder="Username"></div>
-                    <div class="col"><input type="password" id="new-bot-pass" class="form-control" placeholder="Password"></div>
-                    <div class="col" style="flex:0 0 auto;"><button class="btn-primary" id="btn-add-bot" style="width:auto;padding:0.7rem 1.2rem;">Add</button></div>
+                    <div class="col"><input type="text" id="new-bot-user" class="form-control" placeholder="Username">
+                    </div>
+                    <div class="col"><input type="password" id="new-bot-pass" class="form-control"
+                            placeholder="Password"></div>
+                    <div class="col" style="flex:0 0 auto;"><button class="btn-primary" id="btn-add-bot"
+                            style="width:auto;padding:0.7rem 1.2rem;">Add</button></div>
                 </div>
                 <div id="bot-msg" style="margin-top:0.5rem;font-size:0.85rem;"></div>
             </div>
-            <div class="panel"><h2><i class="fa-solid fa-users"></i> My Bots</h2><div id="bots-list"></div></div>
+            <div class="panel">
+                <h2><i class="fa-solid fa-users"></i> My Bots</h2>
+                <div id="bots-list"></div>
+            </div>
         </div>
 
         <div class="tab-content" id="tab-tasks">
             <div class="panel">
                 <h2><i class="fa-solid fa-list-check"></i> All Tasks</h2>
                 <div class="table-responsive">
-                    <table><thead><tr><th>Bot</th><th>Action</th><th>Room</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody id="tasks-body"></tbody></table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Bot</th>
+                                <th>Action</th>
+                                <th>Room</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-body"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -110,7 +575,9 @@
         <div class="tab-content" id="tab-new">
             <div class="panel">
                 <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Create Task</h2>
-                <div class="form-group"><label>Which bots should run this?</label><div class="checkbox-group" id="bot-checkboxes"></div></div>
+                <div class="form-group"><label>Which bots should run this?</label>
+                    <div class="checkbox-group" id="bot-checkboxes"></div>
+                </div>
                 <div class="form-group"><label>Action</label>
                     <select id="action-select" class="form-control">
                         <option value="park">Park (Stay Idle)</option>
@@ -129,34 +596,102 @@
                     <div class="selected-chips" id="selected-chips"></div>
                 </div>
                 <div id="gift-fields" style="display:none;">
-                    <div class="form-group"><label>Gift Name</label><input type="text" id="gift-key" class="form-control" list="gift-list" placeholder="e.g. Fly"><datalist id="gift-list"></datalist></div>
-                    <div class="row"><div class="col"><div class="form-group"><label>Quantity</label><input type="number" id="gift-count" class="form-control" value="10"></div></div><div class="col"><div class="form-group"><label>Interval (s)</label><input type="number" id="gift-interval" class="form-control" value="1" min="1"></div></div></div>
+                    <div class="form-group">
+                        <label>Gift</label>
+                        <div class="form-control room-trigger" id="gift-trigger">
+                            <span id="selected-gift-name" style="color:var(--text-muted)">Select gift...</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                        <div style="margin-top:0.5rem;">
+                            <input type="text" id="gift-search" class="form-control"
+                                placeholder="Or type a gift name..." style="display:none;">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="form-group"><label>Quantity</label><input type="number" id="gift-count"
+                                    class="form-control" value="10"></div>
+                        </div>
+                        <div class="col">
+                            <div class="form-group"><label>Interval (s)</label><input type="number" id="gift-interval"
+                                    class="form-control" value="1" min="1"></div>
+                        </div>
+                    </div>
                 </div>
-                <div id="park-fields" style="display:none;"><div class="form-group"><label>Duration (mins, 0 = infinite)</label><input type="number" id="park-duration" class="form-control" value="0"></div></div>
+
+
+                <div id="park-fields" style="display:none;">
+                    <div class="form-group"><label>Duration (mins, 0 = infinite)</label><input type="number"
+                            id="park-duration" class="form-control" value="0"></div>
+                </div>
                 <div id="game-fields" style="display:none;">
-                    <div class="row"><div class="col"><div class="form-group"><label>Min Bet</label><input type="number" id="bet-min" class="form-control" value="10"></div></div><div class="col"><div class="form-group"><label>Max Bet</label><input type="number" id="bet-max" class="form-control" value="100"></div></div></div>
-                    <div class="row"><div class="col"><div class="form-group"><label>Num Bets</label><input type="number" id="bet-count" class="form-control" value="2"></div></div><div class="col"><div class="form-group"><label>Play Time (mins, 0=inf)</label><input type="number" id="play-duration" class="form-control" value="0"></div></div></div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="form-group"><label>Min Bet</label><input type="number" id="bet-min"
+                                    class="form-control" value="10"></div>
+                        </div>
+                        <div class="col">
+                            <div class="form-group"><label>Max Bet</label><input type="number" id="bet-max"
+                                    class="form-control" value="100"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="form-group"><label>Num Bets</label><input type="number" id="bet-count"
+                                    class="form-control" value="2"></div>
+                        </div>
+                        <div class="col">
+                            <div class="form-group"><label>Play Time (mins, 0=inf)</label><input type="number"
+                                    id="play-duration" class="form-control" value="0"></div>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn-primary" id="btn-create" style="margin-top:0.8rem;"><i class="fa-solid fa-rocket"></i> Launch Task</button>
+                <button class="btn-primary" id="btn-create" style="margin-top:0.8rem;"><i
+                        class="fa-solid fa-rocket"></i> Launch Task</button>
                 <div id="msg" style="margin-top:0.8rem;text-align:center;font-size:0.85rem;"></div>
             </div>
         </div>
 
         <div class="tab-content" id="tab-admin">
-            <div class="panel"><h2><i class="fa-solid fa-users"></i> All Active Bots</h2><div class="table-responsive"><table><thead><tr><th>Bot</th><th>Room</th><th>Tasks</th><th>Status</th></tr></thead><tbody id="admin-bots-body"></tbody></table></div></div>
+            <div class="panel">
+                <h2><i class="fa-solid fa-users"></i> All Active Bots</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Bot</th>
+                                <th>Room</th>
+                                <th>Tasks</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-bots-body"></tbody>
+                    </table>
+                </div>
+            </div>
             <div class="panel">
                 <h2><i class="fa-solid fa-door-open"></i> Manage Rooms</h2>
-                <div class="table-responsive" style="margin-bottom:0.8rem;"><table><tbody id="admin-rooms-body"></tbody></table></div>
+                <div class="table-responsive" style="margin-bottom:0.8rem;">
+                    <table>
+                        <tbody id="admin-rooms-body"></tbody>
+                    </table>
+                </div>
                 <div class="row">
-                    <div class="col"><input type="text" id="new-room-id" class="form-control" placeholder="Room ID"></div>
-                    <div class="col"><input type="text" id="new-room-name" class="form-control" placeholder="Room Name"></div>
-                    <div class="col"><input type="text" id="new-room-actions" class="form-control" placeholder="park,gift"></div>
+                    <div class="col"><input type="text" id="new-room-id" class="form-control" placeholder="Room ID">
+                    </div>
+                    <div class="col"><input type="text" id="new-room-name" class="form-control" placeholder="Room Name">
+                    </div>
+                    <div class="col"><input type="text" id="new-room-actions" class="form-control"
+                            placeholder="park,gift"></div>
                 </div>
                 <button class="btn-primary" id="btn-add-room" style="margin-top:0.8rem;">Add Room</button>
             </div>
         </div>
 
-        <div class="panel"><h2><i class="fa-solid fa-terminal"></i> Live Logs</h2><div class="log-box" id="log"></div></div>
+        <div class="panel">
+            <h2><i class="fa-solid fa-terminal"></i> Live Logs</h2>
+            <div class="log-box" id="log"></div>
+        </div>
     </div>
 
     <!-- BOTTOM NAV -->
@@ -165,29 +700,89 @@
         <button class="nav-item" data-tab="my-bots"><i class="fa-solid fa-users-gear"></i> Bots</button>
         <button class="nav-item" data-tab="tasks"><i class="fa-solid fa-list-check"></i> Tasks</button>
         <button class="nav-item" data-tab="new"><i class="fa-solid fa-plus"></i> New</button>
-        <button class="nav-item" data-tab="admin" id="admin-nav" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin</button>
+        <button class="nav-item" data-tab="admin" id="admin-nav" style="display:none;"><i
+                class="fa-solid fa-shield-halved"></i> Admin</button>
     </nav>
 
     <div class="modal-overlay" id="room-modal">
         <div class="modal-content">
-            <div class="modal-header"><h3>Select Room(s)</h3><button class="btn-close" onclick="closeModal()">&times;</button></div>
-            <div style="display:flex;gap:0.4rem;margin-bottom:0.8rem;">
-                <button class="btn-secondary" id="btn-select-all-rooms" style="flex:1;padding:0.5rem;font-size:0.8rem;"><i class="fa-solid fa-check-double"></i> All</button>
-                <button class="btn-secondary" id="btn-clear-rooms" style="flex:1;padding:0.5rem;font-size:0.8rem;"><i class="fa-solid fa-xmark"></i> Clear</button>
+            <div class="modal-header">
+                <h3>Select Room(s)</h3><button class="btn-close" onclick="closeModal()">&times;</button>
             </div>
-            <input type="text" id="search-room" class="form-control" placeholder="Search rooms..." style="margin-bottom:0.8rem;">
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.8rem;">
+                <button class="btn-secondary" id="btn-select-all-rooms"
+                    style="flex:1;padding:0.5rem;font-size:0.8rem;"><i class="fa-solid fa-check-double"></i>
+                    All</button>
+                <button class="btn-secondary" id="btn-clear-rooms" style="flex:1;padding:0.5rem;font-size:0.8rem;"><i
+                        class="fa-solid fa-xmark"></i> Clear</button>
+            </div>
+            <input type="text" id="search-room" class="form-control" placeholder="Search rooms..."
+                style="margin-bottom:0.8rem;">
             <div class="room-list" id="room-list"></div>
             <button class="btn-primary" onclick="closeModal()">Confirm Selection</button>
         </div>
     </div>
 
+    <div class="modal-overlay" id="gift-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Gift</h3><button class="btn-close" onclick="closeGiftModal()">&times;</button>
+            </div>
+            <input type="text" id="gift-filter" class="form-control" placeholder="Search gifts..."
+                style="margin-bottom:0.8rem;">
+            <div class="room-list" id="gift-list-modal"></div>
+        </div>
+    </div>
+
     <script>
+        let ALL_GIFTS = [];
+        let SELECTED_GIFT = null;
+
+        const loadGifts = async () => {
+            try {
+                const res = await fetch('/api/gifts');
+                const data = await res.json();
+                ALL_GIFTS = data.gifts;
+            } catch (e) { }
+        };
+
+        const openGiftModal = () => {
+            document.getElementById('gift-modal').classList.add('active');
+            document.getElementById('gift-filter').value = '';
+            renderGiftModal('');
+        };
+        const closeGiftModal = () => {
+            document.getElementById('gift-modal').classList.remove('active');
+            if (SELECTED_GIFT) {
+                document.getElementById('selected-gift-name').textContent = SELECTED_GIFT.name;
+                document.getElementById('selected-gift-name').style.color = 'var(--text-main)';
+            }
+        };
+        const renderGiftModal = (filter) => {
+            const list = document.getElementById('gift-list-modal');
+            const filtered = ALL_GIFTS.filter(g => g.name.toLowerCase().includes(filter.toLowerCase()));
+            list.innerHTML = filtered.map(g => {
+                const sel = SELECTED_GIFT && SELECTED_GIFT.key === g.key;
+                return `<div class="room-item ${sel ? 'selected' : ''}" data-key="${g.key}" data-name="${escapeHtml(g.name)}">${escapeHtml(g.name)} <span style="color:var(--text-muted);font-size:0.8rem;">(${g.price})</span></div>`;
+            }).join('') || '<div style="color:var(--text-muted);text-align:center;padding:1rem;">No gifts</div>';
+            list.querySelectorAll('.room-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    SELECTED_GIFT = { key: el.dataset.key, name: el.dataset.name };
+                    closeGiftModal();
+                    renderGiftModal(filter);
+                });
+            });
+        };
+
+        document.getElementById('gift-trigger').addEventListener('click', openGiftModal);
+        document.getElementById('gift-filter').addEventListener('input', e => renderGiftModal(e.target.value));
+
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/';
-        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
         let isAdmin = false;
-        try { const p = JSON.parse(atob(token.split('.')[1])); if (p.role === 'admin') { isAdmin = true; document.getElementById('admin-nav').style.display = 'flex'; } } catch(e){}
+        try { const p = JSON.parse(atob(token.split('.')[1])); if (p.role === 'admin') { isAdmin = true; document.getElementById('admin-nav').style.display = 'flex'; } } catch (e) { }
 
         let ALL_ROOMS = [], SELECTED_ROOMS = [], MY_BOTS = [];
 
@@ -204,11 +799,11 @@
 
         const refreshBots = async () => {
             try {
-                const res = await fetch('/api/my-bots', { headers: {'Authorization': `Bearer ${token}`} });
+                const res = await fetch('/api/my-bots', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!res.ok) return;
                 MY_BOTS = (await res.json()).bots;
                 renderBots(); renderBotCheckboxes();
-            } catch(e){}
+            } catch (e) { }
         };
         const renderBots = () => {
             const list = document.getElementById('bots-list');
@@ -216,15 +811,15 @@
             list.innerHTML = MY_BOTS.map(b => `
                 <div class="bot-row">
                     <div style="display:flex;flex-direction:column;gap:0.15rem;">
-                        <div style="font-weight:600;font-size:0.9rem;"><span class="dot ${b.connected?'on':'off'}"></span> ${escapeHtml(b.username)}</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);">Room: ${escapeHtml(b.room_name||'—')}</div>
+                        <div style="font-weight:600;font-size:0.9rem;"><span class="dot ${b.connected ? 'on' : 'off'}"></span> ${escapeHtml(b.username)}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);">Room: ${escapeHtml(b.room_name || '—')}</div>
                     </div>
                     <button class="btn-stop" onclick="removeBot('${escapeHtml(b.username)}')"><i class="fa-solid fa-trash"></i></button>
                 </div>`).join('');
         };
         window.removeBot = async (u) => {
             if (!confirm(`Remove ${u}?`)) return;
-            await fetch(`/api/my-bots/${u}`, {method:'DELETE', headers:{'Authorization':`Bearer ${token}`}});
+            await fetch(`/api/my-bots/${u}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
             refreshBots();
         };
         document.getElementById('btn-add-bot').addEventListener('click', async () => {
@@ -235,13 +830,13 @@
             m.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
             try {
                 const res = await fetch('/api/my-bots', {
-                    method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-                    body: JSON.stringify({username:u,password:p})
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ username: u, password: p })
                 });
                 const d = await res.json();
-                if (res.ok) { m.innerHTML = `<span style="color:var(--success)">Bot '${escapeHtml(u)}' added!</span>`; document.getElementById('new-bot-user').value=''; document.getElementById('new-bot-pass').value=''; refreshBots(); }
-                else { m.innerHTML = `<span style="color:var(--danger)">${escapeHtml(d.detail||'Failed')}</span>`; }
-            } catch(e){ m.innerHTML = '<span style="color:var(--danger)">Network error</span>'; }
+                if (res.ok) { m.innerHTML = `<span style="color:var(--success)">Bot '${escapeHtml(u)}' added!</span>`; document.getElementById('new-bot-user').value = ''; document.getElementById('new-bot-pass').value = ''; refreshBots(); }
+                else { m.innerHTML = `<span style="color:var(--danger)">${escapeHtml(d.detail || 'Failed')}</span>`; }
+            } catch (e) { m.innerHTML = '<span style="color:var(--danger)">Network error</span>'; }
         });
         const renderBotCheckboxes = () => {
             const c = document.getElementById('bot-checkboxes');
@@ -252,33 +847,33 @@
                     <label for="select-all-bots" style="cursor:pointer;font-weight:600;font-size:0.85rem;">Select All</label>
                 </div>` + MY_BOTS.map(b => `
                 <div class="checkbox-item">
-                    <input type="checkbox" class="bot-checkbox" value="${escapeHtml(b.username)}" ${b.connected?'':'disabled'}>
-                    <label style="cursor:pointer;font-size:0.85rem;">${escapeHtml(b.username)} ${b.connected?'':'(offline)'}</label>
+                    <input type="checkbox" class="bot-checkbox" value="${escapeHtml(b.username)}" ${b.connected ? '' : 'disabled'}>
+                    <label style="cursor:pointer;font-size:0.85rem;">${escapeHtml(b.username)} ${b.connected ? '' : '(offline)'}</label>
                 </div>`).join('');
         };
         window.toggleAllBots = (el) => { document.querySelectorAll('.bot-checkbox').forEach(cb => { if (!cb.disabled) cb.checked = el.checked; }); };
 
-        const openModal = () => { document.getElementById('room-modal').classList.add('active'); document.getElementById('search-room').value=''; renderModalRooms(''); };
+        const openModal = () => { document.getElementById('room-modal').classList.add('active'); document.getElementById('search-room').value = ''; renderModalRooms(''); };
         const closeModal = () => { document.getElementById('room-modal').classList.remove('active'); renderChips(); };
         const renderModalRooms = (f) => {
             const list = document.getElementById('room-list');
             const filtered = ALL_ROOMS.filter(r => r.name.toLowerCase().includes(f.toLowerCase()));
             list.innerHTML = filtered.map(r => {
                 const sel = SELECTED_ROOMS.some(s => s.id === r.id);
-                return `<div class="room-item ${sel?'selected':''}" data-id="${r.id}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>`;
+                return `<div class="room-item ${sel ? 'selected' : ''}" data-id="${r.id}" data-name="${escapeHtml(r.name)}">${escapeHtml(r.name)}</div>`;
             }).join('') || '<div style="color:var(--text-muted);text-align:center;padding:1rem;font-size:0.85rem;">No rooms</div>';
             list.querySelectorAll('.room-item').forEach(el => {
                 el.addEventListener('click', () => {
                     const id = el.dataset.id, name = el.dataset.name;
                     if (SELECTED_ROOMS.some(r => r.id === id)) SELECTED_ROOMS = SELECTED_ROOMS.filter(r => r.id !== id);
-                    else SELECTED_ROOMS.push({id,name});
+                    else SELECTED_ROOMS.push({ id, name });
                     renderModalRooms(f);
                 });
             });
         };
         const renderChips = () => {
             const c = document.getElementById('selected-chips');
-            if (!SELECTED_ROOMS.length) { document.getElementById('selected-room-name').textContent='Select room(s)...'; document.getElementById('selected-room-name').style.color='var(--text-muted)'; c.innerHTML=''; return; }
+            if (!SELECTED_ROOMS.length) { document.getElementById('selected-room-name').textContent = 'Select room(s)...'; document.getElementById('selected-room-name').style.color = 'var(--text-muted)'; c.innerHTML = ''; return; }
             document.getElementById('selected-room-name').textContent = `${SELECTED_ROOMS.length} room(s) selected`;
             document.getElementById('selected-room-name').style.color = 'var(--text-main)';
             c.innerHTML = SELECTED_ROOMS.map(r => `<div class="chip">${escapeHtml(r.name)} <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="removeRoom('${r.id}')"></i></div>`).join('');
@@ -287,7 +882,7 @@
         document.getElementById('room-trigger').addEventListener('click', openModal);
         document.getElementById('search-room').addEventListener('input', e => renderModalRooms(e.target.value));
         document.getElementById('btn-select-all-rooms').addEventListener('click', () => {
-            ALL_ROOMS.forEach(r => { if (!SELECTED_ROOMS.some(s => s.id === r.id)) SELECTED_ROOMS.push({id:r.id,name:r.name}); });
+            ALL_ROOMS.forEach(r => { if (!SELECTED_ROOMS.some(s => s.id === r.id)) SELECTED_ROOMS.push({ id: r.id, name: r.name }); });
             renderModalRooms(document.getElementById('search-room').value);
             document.getElementById('selected-room-name').textContent = `${SELECTED_ROOMS.length} room(s) selected`;
             document.getElementById('selected-room-name').style.color = 'var(--text-main)';
@@ -306,13 +901,18 @@
                     const g = await fetch('/api/gifts');
                     document.getElementById('gift-list').innerHTML = (await g.json()).gifts.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
                 }
-            } catch(e){}
+            } catch (e) { }
         };
         const updateForm = () => {
             const a = document.getElementById('action-select').value;
-            document.getElementById('gift-fields').style.display = a==='gift'?'block':'none';
-            document.getElementById('park-fields').style.display = a==='park'?'block':'none';
-            document.getElementById('game-fields').style.display = ['royale','cricket','dice','lowcard'].includes(a)?'block':'none';
+            document.getElementById('gift-fields').style.display = a === 'gift' ? 'block' : 'none';
+            document.getElementById('park-fields').style.display = a === 'park' ? 'block' : 'none';
+            document.getElementById('game-fields').style.display = ['royale', 'cricket', 'dice', 'lowcard'].includes(a) ? 'block' : 'none';
+            if (a === 'gift') {
+                SELECTED_GIFT = null;
+                document.getElementById('selected-gift-name').textContent = 'Select gift...';
+                document.getElementById('selected-gift-name').style.color = 'var(--text-muted)';
+            }
             SELECTED_ROOMS = [];
             renderChips();
             loadData(a);
@@ -327,44 +927,49 @@
             if (!SELECTED_ROOMS.length) { msg.innerHTML = '<span style="color:var(--danger)">Select at least one room</span>'; return; }
             const action = document.getElementById('action-select').value;
             const body = { action, room_ids: SELECTED_ROOMS.map(r => r.id), bot_usernames: selectedBots };
-            if (action==='gift') { body.gift_key = document.getElementById('gift-key').value; body.gift_count = parseInt(document.getElementById('gift-count').value); body.gift_interval = parseFloat(document.getElementById('gift-interval').value); }
-            else if (action==='park') { body.park_duration_min = parseInt(document.getElementById('park-duration').value); }
+            if (action === 'gift') {
+                if (!SELECTED_GIFT) { msg.innerHTML = '<span style="color:var(--danger)">Select a gift first</span>'; return; }
+                body.gift_key = SELECTED_GIFT.name;
+                body.gift_count = parseInt(document.getElementById('gift-count').value);
+                body.gift_interval = parseFloat(document.getElementById('gift-interval').value);
+            }
+            else if (action === 'park') { body.park_duration_min = parseInt(document.getElementById('park-duration').value); }
             else { body.bet_min = parseInt(document.getElementById('bet-min').value); body.bet_max = parseInt(document.getElementById('bet-max').value); body.bet_count = parseInt(document.getElementById('bet-count').value); body.play_duration_min = parseInt(document.getElementById('play-duration').value); }
             btn.disabled = true;
             msg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Launching...';
             try {
-                const res = await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body: JSON.stringify(body) });
+                const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body) });
                 const d = await res.json();
                 if (res.ok) { msg.innerHTML = `<span style="color:var(--success)">Task created on ${d.tasks.length} bot(s)!</span>`; refresh(); }
-                else { msg.innerHTML = `<span style="color:var(--danger)">${escapeHtml(d.detail||'Failed')}</span>`; }
-            } catch(e){ msg.innerHTML = '<span style="color:var(--danger)">Network error</span>'; }
+                else { msg.innerHTML = `<span style="color:var(--danger)">${escapeHtml(d.detail || 'Failed')}</span>`; }
+            } catch (e) { msg.innerHTML = '<span style="color:var(--danger)">Network error</span>'; }
             btn.disabled = false;
         });
 
-        const fmtTime = s => s<60?s+'s':s<3600?Math.floor(s/60)+'m':Math.floor(s/3600)+'h';
+        const fmtTime = s => s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm' : Math.floor(s / 3600) + 'h';
         const refresh = async () => {
             try {
-                const res = await fetch('/api/status', { headers: {'Authorization': `Bearer ${token}`} });
+                const res = await fetch('/api/status', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/'; return; }
                 if (!res.ok) return;
                 const d = await res.json();
                 const bots = d.bots || {};
-                document.getElementById('bots-overview').innerHTML = Object.entries(bots).map(([n,b]) => `
+                document.getElementById('bots-overview').innerHTML = Object.entries(bots).map(([n, b]) => `
                     <div class="card">
                         <div class="label">${escapeHtml(n)}</div>
-                        <div class="status-indicator">${b.connected?'<span class="dot on"></span> Online':'<span class="dot off"></span> Offline'}</div>
-                        <div style="font-size:0.8rem;color:var(--text-muted);">Room: ${escapeHtml(b.room_name||'—')}</div>
+                        <div class="status-indicator">${b.connected ? '<span class="dot on"></span> Online' : '<span class="dot off"></span> Offline'}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);">Room: ${escapeHtml(b.room_name || '—')}</div>
                         <div style="font-size:0.8rem;color:var(--text-muted);">Balance: ${b.saldo ?? '—'}</div>
                     </div>`).join('') || '<div style="color:var(--text-muted);font-size:0.85rem;">No bots connected</div>';
 
                 let tHtml = '';
-                for (const [n,b] of Object.entries(bots)) {
-                    for (const t of (b.tasks||[])) {
-                        let pr = t.action==='gift' ? `${t.gifts_sent}/${t.gift_target}` : `${t.gifts_sent} acts`;
-                        if (t.action==='park') pr = t.park_ends_at ? fmtTime(Math.max(0,Math.floor(t.park_ends_at-Date.now()/1000)))+' left' : '∞';
-                        if (t.play_ends_at) pr = fmtTime(Math.max(0,Math.floor(t.play_ends_at-Date.now()/1000)))+' left';
-                        const badge = t.status==='running'?'running':t.status==='stopped'?'stopped':'finished';
-                        const btn = t.status==='running' ? `<button class="btn-stop" onclick="stopTask('${escapeHtml(n)}','${t.id}')"><i class="fa-solid fa-stop"></i></button>` : '';
+                for (const [n, b] of Object.entries(bots)) {
+                    for (const t of (b.tasks || [])) {
+                        let pr = t.action === 'gift' ? `${t.gifts_sent}/${t.gift_target}` : `${t.gifts_sent} acts`;
+                        if (t.action === 'park') pr = t.park_ends_at ? fmtTime(Math.max(0, Math.floor(t.park_ends_at - Date.now() / 1000))) + ' left' : '∞';
+                        if (t.play_ends_at) pr = fmtTime(Math.max(0, Math.floor(t.play_ends_at - Date.now() / 1000))) + ' left';
+                        const badge = t.status === 'running' ? 'running' : t.status === 'stopped' ? 'stopped' : 'finished';
+                        const btn = t.status === 'running' ? `<button class="btn-stop" onclick="stopTask('${escapeHtml(n)}','${t.id}')"><i class="fa-solid fa-stop"></i></button>` : '';
                         tHtml += `<tr><td><strong>${escapeHtml(n)}</strong></td><td>${escapeHtml(t.action.toUpperCase())}</td><td>${escapeHtml(t.room_name)}</td><td>${escapeHtml(pr)}</td><td><span class="badge ${badge}">${t.status}</span></td><td>${btn}</td></tr>`;
                     }
                 }
@@ -380,39 +985,41 @@
                     }).join('');
                     if (wb) logEl.scrollTop = logEl.scrollHeight;
                 }
-            } catch(e){}
+            } catch (e) { }
         };
-        window.stopTask = async (b, id) => { await fetch(`/api/tasks/${b}/${id}/stop`, {method:'POST', headers:{'Authorization':`Bearer ${token}`}}); refresh(); };
+        window.stopTask = async (b, id) => { await fetch(`/api/tasks/${b}/${id}/stop`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); refresh(); };
 
         const refreshAdmin = async () => {
             if (!isAdmin) return;
             try {
                 const [s, r] = await Promise.all([
-                    fetch('/api/admin/sessions', {headers:{'Authorization':`Bearer ${token}`}}).then(x => x.json()),
-                    fetch('/api/admin/rooms', {headers:{'Authorization':`Bearer ${token}`}}).then(x => x.json())
+                    fetch('/api/admin/sessions', { headers: { 'Authorization': `Bearer ${token}` } }).then(x => x.json()),
+                    fetch('/api/admin/rooms', { headers: { 'Authorization': `Bearer ${token}` } }).then(x => x.json())
                 ]);
                 let h = '';
-                for (const [n,i] of Object.entries(s.active_bots||{})) { h += `<tr><td>${escapeHtml(n)}</td><td>${escapeHtml(i.room_name||'—')}</td><td>${i.tasks.length} tasks</td><td><span class="badge running">Online</span></td></tr>`; }
+                for (const [n, i] of Object.entries(s.active_bots || {})) { h += `<tr><td>${escapeHtml(n)}</td><td>${escapeHtml(i.room_name || '—')}</td><td>${i.tasks.length} tasks</td><td><span class="badge running">Online</span></td></tr>`; }
                 document.getElementById('admin-bots-body').innerHTML = h || '<tr><td colspan="4" style="text-align:center;font-size:0.85rem;">None</td></tr>';
                 document.getElementById('admin-rooms-body').innerHTML = r.rooms.map(x => `
                     <tr><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.actions.join(', '))}</td>
                     <td><button class="btn-stop" onclick="removeAdminRoom('${x.id}')"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('');
-            } catch(e){}
+            } catch (e) { }
         };
-        window.removeAdminRoom = async (id) => { if (!confirm('Remove room?')) return; await fetch(`/api/admin/rooms/${id}`, {method:'DELETE', headers:{'Authorization':`Bearer ${token}`}}); refreshAdmin(); loadData(); };
+        window.removeAdminRoom = async (id) => { if (!confirm('Remove room?')) return; await fetch(`/api/admin/rooms/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }); refreshAdmin(); loadData(); };
         document.getElementById('btn-add-room').addEventListener('click', async () => {
             const id = document.getElementById('new-room-id').value, name = document.getElementById('new-room-name').value, acts = document.getElementById('new-room-actions').value.split(',').map(s => s.trim());
             if (!id || !name) return;
-            await fetch('/api/admin/rooms', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body: JSON.stringify({id,name,actions:acts}) });
+            await fetch('/api/admin/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id, name, actions: acts }) });
             refreshAdmin(); loadData();
         });
         document.getElementById('logout').addEventListener('click', () => { localStorage.removeItem('token'); window.location.href = '/'; });
 
         loadData('park');
+        loadGifts(); 
         refreshBots();
         refresh();
         setInterval(refresh, 3000);
         if (isAdmin) setInterval(refreshAdmin, 5000);
     </script>
 </body>
+
 </html>

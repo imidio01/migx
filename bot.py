@@ -323,24 +323,66 @@ class MigXBot:
             current_idx += 1
 
     def _run_gift(self, task):
+        import json
         room_id = task.room_ids[0]
         user_gift_input = task.params.get("gift_key", "fly")
         gift_key = get_gift_key(user_gift_input)
         count = task.params.get("gift_count", 1)
-        interval = task.params.get("gift_interval", 1)
+        interval = max(1.0, task.params.get("gift_interval", 1))
+        
         self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
+        
         self._ensure_in_room(room_id)
-        for i in range(count):
-            if task.stop_event.is_set(): return
-            if self.room_id != room_id:
-                self._ensure_in_room(room_id)
-            ok = enviar_mensagem_http(self.token, room_id, f"/gift all {gift_key}")
-            if ok:
-                task.gifts_sent = i + 1
-                self._log("ok", f"[gift] {task.room_names[0]}: {i+1}/{count} sent")
-            else:
-                self._log("warn", f"[gift] {task.room_names[0]}: rejected ({i+1}/{count})")
-            task.stop_event.wait(interval)
+        
+        sent = 0
+        attempts = 0
+        max_attempts = count * 5  # limite de tentativas
+        
+        while sent < count and not task.stop_event.is_set():
+            attempts += 1
+            if attempts > max_attempts:
+                self._log("warn", f"[gift] too many attempts, stopping")
+                break
+            
+            # Envia o gift
+            try:
+                url = f"{API_BASE}/trpc/room.sendMessage?batch=1"
+                payload = {
+                    "0": {
+                        "json": {"roomId": room_id, "content": f"/gift all {gift_key}", "messageType": "text", "replyTo": None},
+                        "meta": {"values": {"replyTo": ["undefined"]}, "v": 1},
+                    }
+                }
+                headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {self.token}"}
+                r = requests.post(url, json=payload, headers=headers, timeout=10)
+                
+                if r.status_code == 200:
+                    data = r.json()
+                    result = data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
+                    if result.get("success"):
+                        sent += 1
+                        task.gifts_sent = sent
+                        self._log("ok", f"[gift] {task.room_names[0]}: {sent}/{count} sent")
+                        task.stop_event.wait(interval)
+                        continue
+                    else:
+                        # Erro no JSON
+                        err = json.dumps(result)[:100]
+                        self._log("warn", f"[gift] rejected: {err}")
+                else:
+                    # Lê a mensagem de erro (ex: "Wait X seconds")
+                    err_text = r.text[:200]
+                    self._log("warn", f"[gift] HTTP {r.status_code}: {err_text}")
+                    match = re.search(r'Wait (\d+) second', err_text)
+                    if match:
+                        wait_s = int(match.group(1))
+                        self._log("info", f"[gift] server asked to wait {wait_s}s")
+                        task.stop_event.wait(wait_s + 1)
+                        continue
+            except Exception as e:
+                self._log("err", f"[gift] error: {e}")
+            
+            task.stop_event.wait(2)  # espera curta antes de tentar de novo
 
     def _run_game(self, task):
         room_id = task.room_ids[0]

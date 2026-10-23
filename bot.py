@@ -14,6 +14,8 @@ API_BASE = "https://api.migxapp.com"
 SOCKET_URL = "https://api.migxapp.com"
 HEARTBEAT_INTERVALO = 30
 
+_room_join_lock = threading.Lock()
+
 def fazer_login(username, password):
     url = f"{API_BASE}/trpc/auth.login?batch=1"
     payload = {"0": {"json": {"username": username, "password": password}}}
@@ -50,12 +52,12 @@ def enviar_mensagem_http(token, room_id, content):
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code >= 400:
-            return False
+            return False, r.text[:200]
         data = r.json()
         result = data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
-        return result.get("success", False)
-    except Exception:
-        return False
+        return result.get("success", False), result
+    except Exception as e:
+        return False, str(e)
 
 class Task:
     _counter = 0
@@ -181,12 +183,11 @@ class MigXBot:
             self.heartbeat_ativo = True
             threading.Thread(target=self._loop_heartbeat, daemon=True).start()
             if self.current_room_to_rejoin:
-                self._log("warn", f"Reconnected. Re-joining room {self.current_room_to_rejoin}")
                 try:
                     entrar_sala_http(self.token, self.current_room_to_rejoin)
                     self.sio.emit("room:join", {"roomId": self.current_room_to_rejoin})
-                except Exception as e:
-                    self._log("err", f"Re-join failed: {e}")
+                except Exception:
+                    pass
 
         @self.sio.event
         def disconnect():
@@ -232,7 +233,9 @@ class MigXBot:
         if self.room_id == room_id:
             return True
         try:
-            entrar_sala_http(self.token, room_id)
+            with _room_join_lock:
+                entrar_sala_http(self.token, room_id)
+                time.sleep(0.3)
             self.sio.emit("room:join", {"roomId": room_id})
             self.current_room_to_rejoin = room_id
             self.room_id = room_id
@@ -299,7 +302,7 @@ class MigXBot:
         duration = task.params.get("park_duration_min", 0)
         rooms = task.room_ids
         current_idx = 0
-        self._log("info", f"[park] {len(rooms)} room(s) selected, 120s each")
+        self._log("info", f"[park] {len(rooms)} room(s) selected, rotating every 5s forever")
         
         while not task.stop_event.is_set():
             if duration > 0 and task.park_ends_at and time.time() >= task.park_ends_at:
@@ -309,80 +312,54 @@ class MigXBot:
             room = find_room(rid)
             rname = room['name'] if room else f"Room {rid[:6]}"
             try:
-                entrar_sala_http(self.token, rid)
+                with _room_join_lock:
+                    entrar_sala_http(self.token, rid)
+                    time.sleep(0.3)
                 self.sio.emit("room:join", {"roomId": rid})
                 self.current_room_to_rejoin = rid
                 self.room_id = rid
                 self.room_name = rname
-                self._log("ok", f"[park] {self.username} → entered '{rname}' ({current_idx+1}/{len(rooms)})")
+                self._log("ok", f"[park] {self.username} → '{rname}' ({current_idx+1}/{len(rooms)})")
             except Exception as e:
                 self._log("err", f"[park] {self.username} → failed '{rname}': {e}")
-            for _ in range(120):
+            for _ in range(5):
                 if task.stop_event.is_set(): return
                 time.sleep(1)
             current_idx += 1
 
     def _run_gift(self, task):
-        import json
         room_id = task.room_ids[0]
-        user_gift_input = task.params.get("gift_key", "fly")
-        gift_key = get_gift_key(user_gift_input)
+        gift_key = get_gift_key(task.params.get("gift_key", "fly"))
         count = task.params.get("gift_count", 1)
         interval = max(1.0, task.params.get("gift_interval", 1))
         
         self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
-        
         self._ensure_in_room(room_id)
         
         sent = 0
         attempts = 0
-        max_attempts = count * 5  # limite de tentativas
+        max_attempts = count * 10
         
-        while sent < count and not task.stop_event.is_set():
+        while sent < count and not task.stop_event.is_set() and attempts < max_attempts:
             attempts += 1
-            if attempts > max_attempts:
-                self._log("warn", f"[gift] too many attempts, stopping")
-                break
-            
-            # Envia o gift
-            try:
-                url = f"{API_BASE}/trpc/room.sendMessage?batch=1"
-                payload = {
-                    "0": {
-                        "json": {"roomId": room_id, "content": f"/gift all {gift_key}", "messageType": "text", "replyTo": None},
-                        "meta": {"values": {"replyTo": ["undefined"]}, "v": 1},
-                    }
-                }
-                headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {self.token}"}
-                r = requests.post(url, json=payload, headers=headers, timeout=10)
-                
-                if r.status_code == 200:
-                    data = r.json()
-                    result = data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
-                    if result.get("success"):
-                        sent += 1
-                        task.gifts_sent = sent
-                        self._log("ok", f"[gift] {task.room_names[0]}: {sent}/{count} sent")
-                        task.stop_event.wait(interval)
-                        continue
-                    else:
-                        # Erro no JSON
-                        err = json.dumps(result)[:100]
-                        self._log("warn", f"[gift] rejected: {err}")
+            ok, resp = enviar_mensagem_http(self.token, room_id, f"/gift all {gift_key}")
+            if ok:
+                sent += 1
+                task.gifts_sent = sent
+                self._log("ok", f"[gift] {task.room_names[0]}: {sent}/{count} sent")
+                task.stop_event.wait(interval)
+            else:
+                err = str(resp)[:120]
+                self._log("warn", f"[gift] rejected: {err}")
+                match = re.search(r'Wait (\d+) second', err)
+                if match:
+                    wait_s = int(match.group(1))
+                    self._log("info", f"[gift] waiting {wait_s}s")
+                    task.stop_event.wait(wait_s + 1)
                 else:
-                    # Lê a mensagem de erro (ex: "Wait X seconds")
-                    err_text = r.text[:200]
-                    self._log("warn", f"[gift] HTTP {r.status_code}: {err_text}")
-                    match = re.search(r'Wait (\d+) second', err_text)
-                    if match:
-                        wait_s = int(match.group(1))
-                        self._log("info", f"[gift] server asked to wait {wait_s}s")
-                        task.stop_event.wait(wait_s + 1)
-                        continue
-            except Exception as e:
-                self._log("err", f"[gift] error: {e}")
-            
-            task.stop_event.wait(2)  # espera curta antes de tentar de novo
+                    task.stop_event.wait(2)
+        
+        self._log("info", f"[gift] Finished. {sent}/{count} sent.")
 
     def _run_game(self, task):
         room_id = task.room_ids[0]

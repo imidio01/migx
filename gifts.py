@@ -1,9 +1,8 @@
 # gifts.py
 GIFTS = {
-    # O fly é o único que confirmaste que funciona. Adiciona os outros à medida que descobres as chaves.
     "fly": {"name": "Fly", "price": 10},
     "happy friday": {"name": "Happy Friday", "price": 13},
-    "super car": {"name": "Super Car", "price": 10000},
+    "super car": {"name": "Super Car", "price": 10},
     "zippo": {"name": "Zippo", "price": 500},
     "ring": {"name": "Ring", "price": 60},
     "muhaah": {"name": "Muhaah", "price": 65},
@@ -64,24 +63,15 @@ GIFTS = {
 
 def get_gift_key(user_input):
     """
-    Devolve a chave que o servidor MigX espera.
-    O servidor aceita 'fly' (com espaço? não — só 'fly').
-    Se o user escrever "Super Car", tenta encontrar na lista.
-    Se não encontrar, devolve o input normalizado (minúsculas, espaços → nada? ou _?)
+    Devolve a chave tal como o servidor MigX espera.
+    O servidor aceita 'fly'. Para os outros, devolve o nome normalizado.
     """
     if not user_input:
         return "fly"
-    
     normalized = user_input.strip().lower()
-    
-    # Se está na lista como chave, devolve a chave tal como está
     if normalized in GIFTS:
-        return normalized  # ex: "fly" → "fly", "super car" → "super car" (o servidor pode aceitar com espaço)
-    
-    # Se o user escreveu o nome (ex: "Super Car"), encontra a chave
+        return normalized  # ex: "fly", "happy friday" (com espaço, como está na lista)
     for key, data in GIFTS.items():
         if data["name"].lower() == normalized:
-            return key  # devolve a chave como está na lista
-    
-    # Se não encontrar, devolve o que o user escreveu (sem underscores, o servidor pode não gostar)
+            return key
     return normalized

@@ -59,6 +59,7 @@ def enviar_mensagem_http(token, room_id, content):
     except Exception as e:
         return False, str(e)
 
+
 class Task:
     _counter = 0
     def __init__(self, action, room_ids, room_names, params):
@@ -95,6 +96,7 @@ class Task:
             "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
             "play_ends_at": self.play_ends_at,
         }
+
 
 class MigXBot:
     def __init__(self):
@@ -532,6 +534,7 @@ class MigXBot:
         # 2) Dar start assim que estiver dentro (NÃO usar !bet)
         elif estou and phase in ("joining", "bidding") and not state["started"]:
             state["started"] = True
+            self._log("info", f"[lowcard] bot detetado no jogo, a enviar start...")
             threading.Thread(target=self._lowcard_start, args=(task,), daemon=True).start()
         
         # 3) Jogar quando for a vez
@@ -548,30 +551,28 @@ class MigXBot:
         time.sleep(random.uniform(1, 2))
         if task.stop_event.is_set():
             return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
-        self._log("ok", f"[lowcard] entrou (!j)")
+        ok, resp = enviar_mensagem_http(self.token, task.room_ids[0], "!j")
+        if ok:
+            self._log("ok", f"[lowcard] entrou (!j)")
+        else:
+            self._log("warn", f"[lowcard] !j rejeitado: {str(resp)[:120]}")
 
     def _lowcard_start(self, task):
-        """Start com valor entre 5.000 e 10.000. NÃO usar !bet."""
         time.sleep(random.uniform(2, 4))
         if task.stop_event.is_set():
             return
         room_id = task.room_ids[0]
-        valor = random.randint(5000, 10000)
+        bet_min = task.params.get("bet_min", 5000)
+        bet_max = task.params.get("bet_max", 10000)
+        if bet_min > bet_max:
+            bet_min, bet_max = bet_max, bet_min
+        valor = random.randint(bet_min, bet_max)
         ok, resp = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
         if ok:
             task.gifts_sent += 1
             self._log("ok", f"[lowcard] start {valor}")
         else:
-            time.sleep(2)
-            if task.stop_event.is_set():
-                return
-            ok2, resp2 = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
-            if ok2:
-                task.gifts_sent += 1
-                self._log("ok", f"[lowcard] start {valor} (retry)")
-            else:
-                self._log("warn", f"[lowcard] start falhou: {str(resp2)[:120]}")
+            self._log("warn", f"[lowcard] start {valor} falhou: {str(resp)[:120]}")
 
     def _lowcard_play(self, task):
         time.sleep(random.uniform(3, 8))

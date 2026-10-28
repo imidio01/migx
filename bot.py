@@ -513,29 +513,117 @@ class MigXBot:
         phase = game.get("phase")
         players = game.get("players", []) or []
         join_credit = game.get("joinCredit", 0) or 0
-        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0})
+        state = self._game_state.setdefault(key, {
+            "game_id": None,
+            "entered": False,
+            "bet": False,
+            "started": False,
+            "played": False,
+            "join_credit": 0,
+        })
         if game_id != state["game_id"]:
-            state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit})
+            state.update({
+                "game_id": game_id,
+                "entered": False,
+                "bet": False,
+                "started": False,
+                "played": False,
+                "join_credit": join_credit,
+            })
             self._log("info", f"[lowcard] {task.room_names[0]}: new game {game_id} join={join_credit}")
-        if join_credit > 100: return
+
+        if join_credit > 100:
+            return
+
         meu = next((p for p in players if p.get("userId") == self.user_id), None)
         estou = meu is not None
+
+        # 1) Entrar no jogo
         if phase == "joining" and not estou and not state["entered"]:
             state["entered"] = True
             threading.Thread(target=self._lowcard_enter, args=(task,), daemon=True).start()
+
+        # 2) Apostar o máximo (10.000) assim que estiver dentro e ainda em joining/bidding
+        elif estou and phase in ("joining", "bidding") and not state["bet"]:
+            state["bet"] = True
+            threading.Thread(target=self._lowcard_bet, args=(task,), daemon=True).start()
+
+        # 3) Dar start entre 5.000 e 10.000 depois de apostar
+        elif estou and phase in ("joining", "bidding") and state["bet"] and not state["started"]:
+            state["started"] = True
+            threading.Thread(target=self._lowcard_start, args=(task,), daemon=True).start()
+
+        # 4) Jogar quando for a vez
         elif phase in ("rolling", "playing", "acting", "choosing", "drawing", "bidding"):
             if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
                 if not state["played"]:
                     state["played"] = True
                     threading.Thread(target=self._lowcard_play, args=(task,), daemon=True).start()
+
         if meu and meu.get("acted"):
             state["played"] = True
 
     def _lowcard_enter(self, task):
-        time.sleep(random.uniform(1, 2))
-        if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
+            time.sleep(random.uniform(1, 2))
+            if task.stop_event.is_set():
+                return
+            enviar_mensagem_http(self.token, task.room_ids[0], "!j")
+            self._log("ok", f"[lowcard] entrou (!j)")
 
+    def _lowcard_bet(self, task):
+            """Aposta máxima: 10.000."""
+            time.sleep(random.uniform(2, 4))
+            if task.stop_event.is_set():
+                return
+            room_id = task.room_ids[0]
+            aposta = 10000
+            ok, resp = enviar_mensagem_http(self.token, room_id, f"!bet {aposta}")
+            if ok:
+                task.gifts_sent += 1
+                self._log("ok", f"[lowcard] aposta {aposta}")
+            else:
+                # se falhar, tenta de novo uma vez
+                time.sleep(2)
+                if task.stop_event.is_set():
+                    return
+                ok2, resp2 = enviar_mensagem_http(self.token, room_id, f"!bet {aposta}")
+                if ok2:
+                    task.gifts_sent += 1
+                    self._log("ok", f"[lowcard] aposta {aposta} (retry)")
+                else:
+                    self._log("warn", f"[lowcard] aposta falhou: {str(resp2)[:120]}")
+    
+    def _lowcard_start(self, task):
+        """Start com valor aleatório entre 5.000 e 10.000."""
+        time.sleep(random.uniform(2, 4))
+        if task.stop_event.is_set():
+            return
+        room_id = task.room_ids[0]
+        valor = random.randint(5000, 10000)
+        ok, resp = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
+        if ok:
+            task.gifts_sent += 1
+            self._log("ok", f"[lowcard] start {valor}")
+        else:
+            time.sleep(2)
+            if task.stop_event.is_set():
+                return
+            ok2, resp2 = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
+            if ok2:
+                task.gifts_sent += 1
+                self._log("ok", f"[lowcard] start {valor} (retry)")
+            else:
+                self._log("warn", f"[lowcard] start falhou: {str(resp2)[:120]}")
+     
+    def _lowcard_play(self, task):
+        time.sleep(random.uniform(3, 8))
+        if task.stop_event.is_set():
+            return
+        if random.random() > 0.7:
+            return
+        enviar_mensagem_http(self.token, task.room_ids[0], "!d")
+        task.gifts_sent += 1
+                                   
     def _lowcard_play(self, task):
         time.sleep(random.uniform(3, 8))
         if task.stop_event.is_set(): return

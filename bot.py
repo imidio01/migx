@@ -59,7 +59,6 @@ def enviar_mensagem_http(token, room_id, content):
     except Exception as e:
         return False, str(e)
 
-
 class Task:
     _counter = 0
     def __init__(self, action, room_ids, room_names, params):
@@ -96,7 +95,6 @@ class Task:
             "gift_target": self.gift_target, "park_ends_at": self.park_ends_at,
             "play_ends_at": self.play_ends_at,
         }
-
 
 class MigXBot:
     def __init__(self):
@@ -513,11 +511,11 @@ class MigXBot:
         join_credit = game.get("joinCredit", 0) or 0
         
         state = self._game_state.setdefault(key, {
-            "game_id": None, "entered": False, "started": False, "played": False,
+            "game_id": None, "started": False, "played": False, "start_attempts": 0
         })
         
         if game_id != state["game_id"]:
-            state.update({"game_id": game_id, "entered": False, "started": False, "played": False})
+            state.update({"game_id": game_id, "started": False, "played": False, "start_attempts": 0})
             self._log("info", f"[lowcard] {task.room_names[0]}: new game {game_id} join={join_credit}")
         
         if join_credit > 100:
@@ -526,19 +524,15 @@ class MigXBot:
         meu = next((p for p in players if p.get("userId") == self.user_id), None)
         estou = meu is not None
         
-        # 1) Entrar no jogo
-        if phase == "joining" and not estou and not state["entered"]:
-            state["entered"] = True
-            threading.Thread(target=self._lowcard_enter, args=(task,), daemon=True).start()
-        
-        # 2) Dar start assim que estiver dentro (NÃO usar !bet)
-        elif estou and phase in ("joining", "bidding") and not state["started"]:
+        # 1) Se NÃO estou no jogo e a fase é joining, tenta START (não !j)
+        if phase == "joining" and not estou and not state["started"] and state["start_attempts"] < 3:
+            state["start_attempts"] += 1
             state["started"] = True
-            self._log("info", f"[lowcard] bot detetado no jogo, a enviar start...")
+            self._log("info", f"[lowcard] a tentar iniciar jogo (tentativa {state['start_attempts']})...")
             threading.Thread(target=self._lowcard_start, args=(task,), daemon=True).start()
         
-        # 3) Jogar quando for a vez
-        elif phase in ("rolling", "playing", "acting", "choosing", "drawing", "bidding"):
+        # 2) Se já estou no jogo e a fase é playing/rolling, joga
+        elif phase in ("rolling", "playing", "acting", "choosing", "drawing"):
             if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
                 if not state["played"]:
                     state["played"] = True
@@ -547,17 +541,8 @@ class MigXBot:
         if meu and meu.get("acted"):
             state["played"] = True
 
-    def _lowcard_enter(self, task):
-        time.sleep(random.uniform(1, 2))
-        if task.stop_event.is_set():
-            return
-        ok, resp = enviar_mensagem_http(self.token, task.room_ids[0], "!j")
-        if ok:
-            self._log("ok", f"[lowcard] entrou (!j)")
-        else:
-            self._log("warn", f"[lowcard] !j rejeitado: {str(resp)[:120]}")
-
     def _lowcard_start(self, task):
+        """Inicia o jogo com !start. O criador fica automaticamente dentro."""
         time.sleep(random.uniform(2, 4))
         if task.stop_event.is_set():
             return
@@ -570,7 +555,7 @@ class MigXBot:
         ok, resp = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
         if ok:
             task.gifts_sent += 1
-            self._log("ok", f"[lowcard] start {valor}")
+            self._log("ok", f"[lowcard] start {valor} enviado")
         else:
             self._log("warn", f"[lowcard] start {valor} falhou: {str(resp)[:120]}")
 

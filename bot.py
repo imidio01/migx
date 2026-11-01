@@ -16,6 +16,47 @@ HEARTBEAT_INTERVALO = 30
 
 _room_join_lock = threading.Lock()
 
+_LETTER_MAP = {
+    "a": 1, "j": 11, "q": 12, "k": 13, "10": 10,
+}
+
+# --- Perfis de agressividade por jogo ---
+# play_prob: prob. base de jogar quando é "oportuno"
+# min_gap_between_plays: segundos mínimos entre jogadas
+# reaction_min/max: delay antes de mandar o comando
+# skip_after_loss_rounds: rondas a ignorar depois de uma derrota
+_GAME_PROFILES = {
+    "cricket": {
+        "play_prob": 0.08,
+        "min_gap_between_plays": 45,
+        "reaction_min": 2.5,
+        "reaction_max": 6.0,
+        "skip_after_loss_rounds": 3,
+    },
+    "dice": {
+        "play_prob": 0.10,
+        "min_gap_between_plays": 40,
+        "reaction_min": 2.0,
+        "reaction_max": 5.5,
+        "skip_after_loss_rounds": 3,
+    },
+    "lowcard": {
+        "play_prob": 0.18,
+        "min_gap_between_plays": 25,
+        "reaction_min": 1.5,
+        "reaction_max": 4.0,
+        "skip_after_loss_rounds": 2,
+    },
+    "royale": {
+        "play_prob": 0.25,
+        "min_gap_between_plays": 20,
+        "reaction_min": 1.2,
+        "reaction_max": 3.5,
+        "skip_after_loss_rounds": 1,
+    },
+}
+
+
 def fazer_login(username, password):
     url = f"{API_BASE}/trpc/auth.login?batch=1"
     payload = {"0": {"json": {"username": username, "password": password}}}
@@ -31,6 +72,7 @@ def fazer_login(username, password):
     except Exception:
         return None
 
+
 def entrar_sala_http(token, room_id):
     url = f"{API_BASE}/trpc/room.join?batch=1"
     payload = {"0": {"json": {"roomId": room_id}}}
@@ -39,6 +81,7 @@ def entrar_sala_http(token, room_id):
     r.raise_for_status()
     data = r.json()
     return data[0]["result"]["data"]["json"] if isinstance(data, list) else data["result"]["data"]["json"]
+
 
 def enviar_mensagem_http(token, room_id, content):
     url = f"{API_BASE}/trpc/room.sendMessage?batch=1"
@@ -59,8 +102,10 @@ def enviar_mensagem_http(token, room_id, content):
     except Exception as e:
         return False, str(e)
 
+
 class Task:
     _counter = 0
+
     def __init__(self, action, room_ids, room_names, params):
         Task._counter += 1
         self.id = f"t{Task._counter}-{uuid.uuid4().hex[:6]}"
@@ -96,6 +141,7 @@ class Task:
             "play_ends_at": self.play_ends_at,
         }
 
+
 class MigXBot:
     def __init__(self):
         self.token = None
@@ -113,12 +159,12 @@ class MigXBot:
         self.heartbeat_ativo = False
         self.heartbeats_enviados = 0
         self.mensagens_recebidas = 0
-        self._game_state = {}
         self.logs = []
         self.log_lock = threading.Lock()
         self.started_at = None
         self.sio = None
         self.current_room_to_rejoin = None
+        self._game_states = {}
 
     def _log(self, nivel, texto):
         entrada = {"ts": datetime.now().strftime("%H:%M:%S"), "nivel": nivel, "texto": str(texto)}
@@ -166,7 +212,7 @@ class MigXBot:
 
         device_id = str(uuid.uuid4())
         auth = {"token": f"Bearer {self.token}", "clientVersion": "web", "platform": "web", "deviceId": device_id}
-        
+
         self._log("info", "Connecting to Socket.IO...")
         try:
             self.sio.connect(SOCKET_URL, transports=["polling", "websocket"], auth=auth, wait_timeout=30)
@@ -196,19 +242,17 @@ class MigXBot:
             self._log("warn", "Disconnected from Socket.IO — reconnection is automatic")
 
         @self.sio.on("room:message")
-        def on_rm(data): self._on_room_message(data)
+        def on_rm(data):
+            self._on_room_message(data)
+
         @self.sio.on("roomMessage")
-        def on_rm2(data): self._on_room_message(data)
+        def on_rm2(data):
+            self._on_room_message(data)
 
         @self.sio.on("user:balance")
         def on_bal(data):
             self.saldo = data.get("balance")
             self._log("info", f"Balance: {self.saldo}")
-
-        @self.sio.on("game:state")
-        def on_gs(data): self._on_game_state(data)
-        @self.sio.on("gameState")
-        def on_gs2(data): self._on_game_state(data)
 
         @self.sio.on("roomCountChanged")
         def on_rc(data):
@@ -216,7 +260,8 @@ class MigXBot:
                 self.room_members = data.get("count")
 
         @self.sio.on("*")
-        def on_any(event, data): pass
+        def on_any(event, data):
+            pass
 
     def _loop_heartbeat(self):
         while self.heartbeat_ativo:
@@ -248,7 +293,8 @@ class MigXBot:
             return False
 
     def create_task(self, action, room_ids, params):
-        if not room_ids: return None, "No rooms selected"
+        if not room_ids:
+            return None, "No rooms selected"
         room_names = []
         for rid in room_ids:
             room = find_room(rid)
@@ -261,7 +307,7 @@ class MigXBot:
         task = Task(action, room_ids, room_names, params)
         if action == "park" and params.get("park_duration_min", 0) > 0:
             task.park_ends_at = time.time() + params["park_duration_min"] * 60
-        if is_event_driven(action) and params.get("play_duration_min", 0) > 0:
+        if action in ("royale", "cricket", "dice", "lowcard") and params.get("play_duration_min", 0) > 0:
             task.play_ends_at = time.time() + params["play_duration_min"] * 60
 
         with self.tasks_lock:
@@ -274,8 +320,10 @@ class MigXBot:
     def stop_task(self, task_id):
         with self.tasks_lock:
             task = self.tasks.get(task_id)
-            if not task: return False, "Task not found"
-            if task.status != "running": return False, "Task already finished"
+            if not task:
+                return False, "Task not found"
+            if task.status != "running":
+                return False, "Task already finished"
             task.stop_event.set()
             task.status = "stopped"
             task.stopped_at = time.time()
@@ -288,7 +336,7 @@ class MigXBot:
                 self._run_park(task)
             elif task.action == "gift":
                 self._run_gift(task)
-            elif is_event_driven(task.action):
+            elif task.action in ("royale", "cricket", "dice", "lowcard"):
                 self._run_game(task)
         except Exception as e:
             self._log("err", f"Task {task.id} crashed: {e}")
@@ -302,14 +350,14 @@ class MigXBot:
         duration = task.params.get("park_duration_min", 0)
         room_id = task.room_ids[0]
         keepalive_cmd = "!start"
-        
+
         self._log("info", f"[park] Staying in '{task.room_names[0]}' (keep-alive: {keepalive_cmd})")
-        
+
         while not task.stop_event.is_set():
             if duration > 0 and task.park_ends_at and time.time() >= task.park_ends_at:
                 self._log("info", f"[park] Duration reached")
                 return
-            
+
             if self.room_id != room_id:
                 try:
                     with _room_join_lock:
@@ -322,7 +370,7 @@ class MigXBot:
                     self._log("ok", f"[park] {self.username} → '{self.room_name}'")
                 except Exception as e:
                     self._log("err", f"[park] failed: {e}")
-            
+
             try:
                 ok, resp = enviar_mensagem_http(self.token, room_id, keepalive_cmd)
                 if ok:
@@ -331,9 +379,10 @@ class MigXBot:
                     self._log("info", f"[park] keep-alive sent (rejected by server)")
             except Exception as e:
                 self._log("err", f"[park] keep-alive error: {e}")
-            
+
             for _ in range(45):
-                if task.stop_event.is_set(): return
+                if task.stop_event.is_set():
+                    return
                 time.sleep(1)
 
     def _run_gift(self, task):
@@ -341,14 +390,14 @@ class MigXBot:
         gift_key = get_gift_key(task.params.get("gift_key", "fly"))
         count = task.params.get("gift_count", 1)
         interval = max(1.0, task.params.get("gift_interval", 1))
-        
+
         self._log("info", f"[gift] {task.room_names[0]}: sending {count}x '{gift_key}' every {interval}s")
         self._ensure_in_room(room_id)
-        
+
         sent = 0
         attempts = 0
         max_attempts = count * 10
-        
+
         while sent < count and not task.stop_event.is_set() and attempts < max_attempts:
             attempts += 1
             ok, resp = enviar_mensagem_http(self.token, room_id, f"/gift all {gift_key}")
@@ -367,206 +416,232 @@ class MigXBot:
                     task.stop_event.wait(wait_s + 1)
                 else:
                     task.stop_event.wait(2)
-        
+
         self._log("info", f"[gift] Finished. {sent}/{count} sent.")
 
+    def _parse_roll_value(self, text):
+        """Extrai o valor tirado de uma mensagem do sistema."""
+        t = text.strip()
+        # Tenta letras primeiro (A, K, Q, J, 10)
+        m = re.search(r'\b(A|K|Q|J|10)\b', t, re.I)
+        if m:
+            v = m.group(1).lower()
+            return _LETTER_MAP.get(v)
+        # Tenta número 1-13
+        m = re.search(r'\b(1[0-3]|[1-9])\b', t)
+        if m:
+            return int(m.group(1))
+        return None
+
     def _run_game(self, task):
+        """Loop conservador: entra no jogo, mas joga raramente e de forma irregular."""
         room_id = task.room_ids[0]
         self._ensure_in_room(room_id)
-        while not task.stop_event.is_set():
-            if task.play_ends_at and time.time() >= task.play_ends_at:
-                self._log("info", f"[{task.action}] duration reached")
-                break
-            task.stop_event.wait(1)
+
+        profile = _GAME_PROFILES.get(task.action, _GAME_PROFILES["dice"])
+
+        join_cmd = "!j"
+        play_cmd = {
+            "dice": "!r",
+            "cricket": "!d",
+            "lowcard": "!d",
+            "royale": "!bet red 100",
+        }.get(task.action, "!d")
+
+        self._log("info", f"[{task.action}] {task.room_names[0]}: perfil conservador "
+                         f"(play_prob={profile['play_prob']}, gap>={profile['min_gap_between_plays']}s)")
+
+        state_key = f"game-{task.id}"
+        game_state = {
+            "last_value": None,
+            "last_value_ts": 0,
+            "last_value_user": None,
+            "my_turn_at": None,
+            "joined": False,
+            "last_play_ts": 0,
+            "loss_streak": 0,
+            "rounds_since_play": 0,
+        }
+        self._game_states[state_key] = game_state
+
+        last_join = 0
+        next_decision = 0
+        JOIN_INTERVAL = 25
+
+        try:
+            while not task.stop_event.is_set():
+                if task.play_ends_at and time.time() >= task.play_ends_at:
+                    self._log("info", f"[{task.action}] duration reached")
+                    break
+
+                now = time.time()
+
+                # 1) Entrar no jogo (!j) — só se ainda não está dentro
+                if now - last_join >= JOIN_INTERVAL and not game_state["joined"]:
+                    last_join = now
+                    try:
+                        ok, resp = enviar_mensagem_http(self.token, room_id, join_cmd)
+                        if ok:
+                            self._log("info", f"[{task.action}] !j enviado")
+                        else:
+                            self._log("warn", f"[{task.action}] !j rejeitado: {str(resp)[:100]}")
+                    except Exception as e:
+                        self._log("err", f"[{task.action}] erro !j: {e}")
+
+                # 2) Decidir se joga — com proteções fortes
+                if now >= next_decision:
+                    decision = self._decide_play_conservative(game_state, profile, now)
+                    if decision == "play":
+                        reaction = random.uniform(profile["reaction_min"], profile["reaction_max"])
+                        reaction += random.uniform(0, 1.5)
+                        task.stop_event.wait(reaction)
+                        if task.stop_event.is_set():
+                            break
+
+                        try:
+                            ok, resp = enviar_mensagem_http(self.token, room_id, play_cmd)
+                            if ok:
+                                task.gifts_sent += 1
+                                game_state["last_play_ts"] = time.time()
+                                game_state["rounds_since_play"] = 0
+                                self._log("ok", f"[{task.action}] jogada #{task.gifts_sent} "
+                                                 f"(após {reaction:.1f}s)")
+                            else:
+                                self._log("warn", f"[{task.action}] jogada rejeitada: {str(resp)[:100]}")
+                        except Exception as e:
+                            self._log("err", f"[{task.action}] erro jogada: {e}")
+
+                        next_decision = time.time() + profile["min_gap_between_plays"] \
+                                        + random.uniform(0, profile["min_gap_between_plays"] * 0.5)
+
+                    elif decision == "skip":
+                        game_state["rounds_since_play"] += 1
+                        next_decision = now + random.uniform(4, 12)
+                        self._log("info", f"[{task.action}] skip (última: {game_state['last_value']}, "
+                                          f"rounds_sem_jogar={game_state['rounds_since_play']})")
+                    else:  # wait
+                        next_decision = now + random.uniform(2.0, 5.0)
+
+                task.stop_event.wait(0.8)
+        finally:
+            self._game_states.pop(state_key, None)
+
+        self._log("info", f"[{task.action}] terminou ({task.gifts_sent} jogadas)")
+
+    def _decide_play_conservative(self, gs, profile, now):
+        """
+        Decide se deve jogar — MUITO mais conservador.
+        Retorna: 'play', 'wait' ou 'skip'
+        """
+        # 0) Respeitar gap mínimo entre jogadas
+        since_last = now - gs.get("last_play_ts", 0)
+        if since_last < profile["min_gap_between_plays"]:
+            return "wait"
+
+        # 1) Se estamos num "loss streak" obrigatório, skip
+        if gs["loss_streak"] > 0:
+            gs["loss_streak"] -= 1
+            return "skip"
+
+        last_val = gs["last_value"]
+        last_ts = gs["last_value_ts"]
+
+        # 2) Sem info -> probabilidade baixíssima de jogar
+        if last_val is None:
+            return "play" if random.random() < profile["play_prob"] * 0.5 else "wait"
+
+        age = now - last_ts
+        if age < 2.0:
+            return "wait"
+
+        # 3) Aplicar probabilidade base do perfil
+        if random.random() > profile["play_prob"]:
+            # mesmo quando "decide jogar", 60% das vezes ainda espera
+            if random.random() < 0.60:
+                return "wait"
+            return "skip"
+
+        # 4) Mesmo dentro dos 8-25% de "quer jogar", filtrar por valor observado
+        high = last_val >= 9
+        low = last_val <= 5
+
+        if high:
+            r = random.random()
+            if r < 0.85:
+                gs["loss_streak"] = profile["skip_after_loss_rounds"]
+                return "skip"
+            elif r < 0.97:
+                return "wait"
+            else:
+                return "play" if random.random() < 0.5 else "skip"
+
+        if low:
+            r = random.random()
+            if r < 0.55:
+                return "play"
+            elif r < 0.85:
+                return "wait"
+            else:
+                return "skip"
+
+        # neutro -> raramente
+        r = random.random()
+        if r < 0.30:
+            return "play"
+        elif r < 0.75:
+            return "wait"
+        else:
+            gs["loss_streak"] = profile["skip_after_loss_rounds"]
+            return "skip"
 
     def _on_room_message(self, data):
         self.mensagens_recebidas += 1
         msg = data.get("message", {}) or {}
         content = msg.get("content", "")
         sender = msg.get("sender", {}) or {}
+        sender_name = sender.get("username", "?")
         mtype = msg.get("messageType", "")
+
         if mtype == "system":
-            clean = re.sub(r"<[^>]+>", "", content)[:140]
+            clean = re.sub(r"<[^>]+>", "", content)[:200]
             self._log("info", f"[system] {clean}")
+
+            # Tentar extrair valor tirado
+            val = self._parse_roll_value(clean)
+            if val is not None:
+                for key, gs in self._game_states.items():
+                    gs["last_value"] = val
+                    gs["last_value_ts"] = time.time()
+                    gs["last_value_user"] = sender_name
+
+            # Detetar "your turn" / "sua vez" / "é a tua vez"
+            lower = clean.lower()
+            if any(k in lower for k in ("your turn", "sua vez", "é a tua vez", "your move", "tua vez")):
+                for key, gs in self._game_states.items():
+                    gs["my_turn_at"] = time.time()
+
+            # Detetar entrada no jogo
+            if any(k in lower for k in ("joined the game", "entrou no jogo", "entrou na partida")):
+                if self.username and self.username.lower() in lower:
+                    for key, gs in self._game_states.items():
+                        gs["joined"] = True
+
+            # Detetar fim de jogo
+            if any(k in lower for k in ("game over", "fim do jogo", "terminou", "winner", "vencedor")):
+                for key, gs in self._game_states.items():
+                    gs["joined"] = False
+                    gs["last_value"] = None
+                    gs["last_value_ts"] = 0
+
+            # Detetar derrota -> forçar pausa (loss_streak)
+            if any(k in lower for k in ("you lost", "perdeste", "lost the round", "perdeu")):
+                for key, gs in self._game_states.items():
+                    gs["loss_streak"] = max(gs.get("loss_streak", 0), 3)
+                    gs["joined"] = False
+                    gs["last_value"] = None
+                    gs["last_value_ts"] = 0
         else:
-            self._log("info", f"{sender.get('username', '?')}: {content[:140]}")
-
-    def _on_game_state(self, data):
-        if not isinstance(data, dict): return
-        game = data.get("game") or data
-        name = game.get("gameName")
-        if not name: return
-        with self.tasks_lock:
-            active = [t for t in self.tasks.values() if t.status == "running"]
-        if name == "royalebattle":
-            for t in active:
-                if t.action == "royale": self._handle_royale(t, game)
-        elif name == "cricket":
-            for t in active:
-                if t.action == "cricket": self._handle_cricket(t, game)
-        elif name == "dice":
-            for t in active:
-                if t.action == "dice": self._handle_dice(t, game)
-        elif name in ("lowcard", "cards", "cardbattle", "card", None):
-            for t in active:
-                if t.action == "lowcard": self._handle_lowcard(t, game)
-
-    def _handle_royale(self, task, game):
-        key = f"royale-{task.id}"
-        phase = game.get("phase")
-        started_at = game.get("startedAt")
-        state = self._game_state.setdefault(key, {"last_started": None, "bet": False})
-        if started_at != state["last_started"]:
-            state["last_started"] = started_at
-            state["bet"] = False
-            self._log("info", f"[royale] {task.room_names[0]}: new round")
-        if phase == "bidding" and not state["bet"]:
-            state["bet"] = True
-            threading.Thread(target=self._royale_bet, args=(task,), daemon=True).start()
-
-    def _royale_bet(self, task):
-        time.sleep(random.uniform(3, 6))
-        if task.stop_event.is_set(): return
-        room_id = task.room_ids[0]
-        enviar_mensagem_http(self.token, room_id, "!bet red 100")
-        task.gifts_sent += 1
-        time.sleep(random.uniform(2, 4))
-        if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, room_id, "!bet blue 100")
-        task.gifts_sent += 1
-
-    def _handle_cricket(self, task, game):
-        key = f"cricket-{task.id}"
-        game_id = game.get("gameId")
-        phase = game.get("phase")
-        players = game.get("players", []) or []
-        join_credit = game.get("joinCredit", 0) or 0
-        action_cmd = game.get("actionCommand") or "!d"
-        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "played": False, "join_credit": 0, "action_cmd": "!d"})
-        if game_id != state["game_id"]:
-            state.update({"game_id": game_id, "entered": False, "played": False, "join_credit": join_credit, "action_cmd": action_cmd})
-            self._log("info", f"[cricket] {task.room_names[0]}: new game {game_id} join={join_credit}")
-        if join_credit > 100: return
-        meu = next((p for p in players if p.get("userId") == self.user_id), None)
-        estou = meu is not None
-        if phase == "joining" and not estou and not state["entered"]:
-            state["entered"] = True
-            threading.Thread(target=self._cricket_enter, args=(task,), daemon=True).start()
-        elif phase in ("rolling", "playing", "acting", "choosing", "drawing", "bidding"):
-            if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
-                if not state["played"]:
-                    state["played"] = True
-                    threading.Thread(target=self._cricket_play, args=(task, state["action_cmd"]), daemon=True).start()
-
-    def _cricket_enter(self, task):
-        time.sleep(random.uniform(1, 2))
-        if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
-
-    def _cricket_play(self, task, cmd):
-        time.sleep(random.uniform(3, 8))
-        if task.stop_event.is_set(): return
-        if random.random() > 0.7: return
-        enviar_mensagem_http(self.token, task.room_ids[0], cmd or "!d")
-        task.gifts_sent += 1
-
-    def _handle_dice(self, task, game):
-        key = f"dice-{task.id}"
-        game_id = game.get("gameId")
-        phase = game.get("phase")
-        players = game.get("players", []) or []
-        join_credit = game.get("joinCredit", 0) or 0
-        state = self._game_state.setdefault(key, {"game_id": None, "entered": False, "rolled": False, "join_credit": 0})
-        if game_id != state["game_id"]:
-            state.update({"game_id": game_id, "entered": False, "rolled": False, "join_credit": join_credit})
-            self._log("info", f"[dice] {task.room_names[0]}: new game {game_id} join={join_credit}")
-        if join_credit > 100: return
-        meu = next((p for p in players if p.get("userId") == self.user_id), None)
-        estou = meu is not None
-        if phase == "joining" and not estou and not state["entered"]:
-            state["entered"] = True
-            threading.Thread(target=self._dice_enter, args=(task,), daemon=True).start()
-        elif phase in ("rolling", "playing", "acting"):
-            if meu and meu.get("canAct") and not meu.get("acted") and not state["rolled"]:
-                state["rolled"] = True
-                threading.Thread(target=self._dice_roll, args=(task,), daemon=True).start()
-
-    def _dice_enter(self, task):
-        time.sleep(random.uniform(1, 2))
-        if task.stop_event.is_set(): return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!j")
-
-    def _dice_roll(self, task):
-        time.sleep(random.uniform(3, 8))
-        if task.stop_event.is_set(): return
-        if random.random() > 0.7: return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!r")
-        task.gifts_sent += 1
-
-    def _handle_lowcard(self, task, game):
-        key = f"lowcard-{task.id}"
-        game_id = game.get("gameId")
-        phase = game.get("phase")
-        players = game.get("players", []) or []
-        join_credit = game.get("joinCredit", 0) or 0
-        
-        state = self._game_state.setdefault(key, {
-            "game_id": None, "started": False, "played": False, "start_attempts": 0
-        })
-        
-        if game_id != state["game_id"]:
-            state.update({"game_id": game_id, "started": False, "played": False, "start_attempts": 0})
-            self._log("info", f"[lowcard] {task.room_names[0]}: new game {game_id} join={join_credit}")
-        
-        if join_credit > 100:
-            return
-        
-        meu = next((p for p in players if p.get("userId") == self.user_id), None)
-        estou = meu is not None
-        
-        # 1) Se NÃO estou no jogo e a fase é joining, tenta START (não !j)
-        if phase == "joining" and not estou and not state["started"] and state["start_attempts"] < 3:
-            state["start_attempts"] += 1
-            state["started"] = True
-            self._log("info", f"[lowcard] a tentar iniciar jogo (tentativa {state['start_attempts']})...")
-            threading.Thread(target=self._lowcard_start, args=(task,), daemon=True).start()
-        
-        # 2) Se já estou no jogo e a fase é playing/rolling, joga
-        elif phase in ("rolling", "playing", "acting", "choosing", "drawing"):
-            if meu and meu.get("canAct") and not meu.get("acted") and not meu.get("isOut"):
-                if not state["played"]:
-                    state["played"] = True
-                    threading.Thread(target=self._lowcard_play, args=(task,), daemon=True).start()
-        
-        if meu and meu.get("acted"):
-            state["played"] = True
-
-    def _lowcard_start(self, task):
-        """Inicia o jogo com !start. O criador fica automaticamente dentro."""
-        time.sleep(random.uniform(2, 4))
-        if task.stop_event.is_set():
-            return
-        room_id = task.room_ids[0]
-        bet_min = task.params.get("bet_min", 5000)
-        bet_max = task.params.get("bet_max", 10000)
-        if bet_min > bet_max:
-            bet_min, bet_max = bet_max, bet_min
-        valor = random.randint(bet_min, bet_max)
-        ok, resp = enviar_mensagem_http(self.token, room_id, f"!start {valor}")
-        if ok:
-            task.gifts_sent += 1
-            self._log("ok", f"[lowcard] start {valor} enviado")
-        else:
-            self._log("warn", f"[lowcard] start {valor} falhou: {str(resp)[:120]}")
-
-    def _lowcard_play(self, task):
-        time.sleep(random.uniform(3, 8))
-        if task.stop_event.is_set():
-            return
-        if random.random() > 0.7:
-            return
-        enviar_mensagem_http(self.token, task.room_ids[0], "!d")
-        task.gifts_sent += 1
+            self._log("info", f"{sender_name}: {content[:140]}")
 
     def stop(self):
         with self.tasks_lock:
@@ -578,5 +653,7 @@ class MigXBot:
         self.heartbeat_ativo = False
         self._log("warn", "Stopping bot...")
         if self.sio and self.sio.connected:
-            try: self.sio.disconnect()
-            except Exception: pass
+            try:
+                self.sio.disconnect()
+            except Exception:
+                pass

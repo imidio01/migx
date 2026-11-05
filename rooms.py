@@ -19,6 +19,9 @@ ROOMS = [
     {"id": "6a794780e61151b7325e6ed3", "name": "Red Esports", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6adf20409187d0bf2c47ec36", "name": "Crazy contest", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6a827a656185842612839b05", "name": "Pokhara", "actions": ["park", "gift"], "category": "chat"},
+    {"id": "6a744878a0e8c996a46456fe", "name": "Gift house", "actions": ["park", "gift"], "category": "chat"},
+    
+    
     # ===== GAMES: ROYALE =====
     {"id": "6a5c48110cf9038123569837", "name": "Royale Battle", "actions": ["royale"], "category": "game"},
 

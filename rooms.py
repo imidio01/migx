@@ -45,7 +45,8 @@ ROOMS = [
     {"id": "6a756ac607c537cc5ef4cb3a", "name": "Lowcard 4", "actions": ["lowcard"], "category": "game"},
     {"id": "6ad8b26f110fa0be23638535", "name": "Jagoleste", "actions": ["lowcard"], "category": "game"},
     {"id": "6ae17d57a73e4ee323575f6f", "name": "Migx Game Zone", "actions": ["lowcard"], "category": "game"},
-]
+    {"id": "6a73528bcbaf0ef61303bdf5", "name": "Gaming Room", "actions": ["lowcard"], "category": "game"},
+] 
 ACTIONS = [
     {"key": "park",    "label": "Park (stay idle in room)"},
     {"key": "gift",    "label": "Send Gifts"},

@@ -20,6 +20,7 @@ ROOMS = [
     {"id": "6adf20409187d0bf2c47ec36", "name": "Crazy contest", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6a827a656185842612839b05", "name": "Pokhara", "actions": ["park", "gift"], "category": "chat"},
     {"id": "6a744878a0e8c996a46456fe", "name": "Gift house", "actions": ["park", "gift"], "category": "chat"},
+    {"id": "6aedf21f365db30c1d055fac", "name": "happy Diwali", "actions": ["park", "gift"], "category": "chat"},
     
     
     # ===== GAMES: ROYALE =====
